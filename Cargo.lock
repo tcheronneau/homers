@@ -448,6 +448,7 @@ dependencies = [
  "clap-verbosity-flag",
  "figment",
  "json",
+ "lazy_static",
  "log",
  "reqwest",
  "serde",

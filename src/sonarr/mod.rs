@@ -1,14 +1,35 @@
 use reqwest::header;
 use chrono::{Local, format::strftime::StrftimeItems, Duration};
 use serde::Deserialize;
+use lazy_static::lazy_static;
+use std::sync::{Mutex, Once,Arc};
 
 pub mod structs;
 
+lazy_static! {
+    static ref API_KEY: Mutex<Option<Arc<String>>> = Mutex::new(None);
+    static ref INIT: Once = Once::new();
+}
+
+fn initialize_api_key(api_key: String) {
+    INIT.call_once(|| {
+        *API_KEY.lock().unwrap() = Some(Arc::new(api_key));
+    });
+}
+
+fn get_api_key() -> Arc<String> {
+    INIT.call_once(|| {
+        eprintln!("API key not initialized!");
+        std::process::exit(1);
+    });
+
+    Arc::clone(API_KEY.lock().unwrap().as_ref().unwrap())
+}
+
 #[derive(Debug, Deserialize)]
-pub struct Sonarr<'a> {
+pub struct Sonarr {
     pub address: String,
-    #[serde(borrow)]
-    pub api_key: &'a str,
+    pub api_key: String,
     #[serde(skip)]
     client: Option<reqwest::Client>,
 }
@@ -29,10 +50,11 @@ impl std::fmt::Display for SonarrEpisode {
     }
 }
 
-impl Sonarr <'_> {
-    pub fn new(address: String, api_key: &'static str) -> Sonarr{
+impl Sonarr {
+    pub fn new(address: String, api_key: String) -> Sonarr{
         let mut headers = header::HeaderMap::new();
-        let mut header_api_key = header::HeaderValue::from_static(api_key);
+        initialize_api_key(api_key.clone());
+        let mut header_api_key = header::HeaderValue::from_str(&*get_api_key()).unwrap();
         header_api_key.set_sensitive(true);
         headers.insert("X-Api-Key", header_api_key);
         let client = reqwest::Client::builder()

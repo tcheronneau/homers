@@ -7,14 +7,13 @@ use crate::tautulli::Tautulli;
 use crate::sonarr::Sonarr;
 
 #[derive(Debug,Deserialize)]
-pub struct Config <'a> {
+pub struct Config {
     pub tautulli: Tautulli,
-    #[serde(borrow)]
-    pub sonarr: Sonarr<'a>,
+    pub sonarr: Sonarr,
     //pub http: rocket::Config,
 }
 
-pub fn read(config_file: PathBuf, log_level: Level) -> anyhow::Result<Config<'static>> {
+pub fn read(config_file: PathBuf, log_level: Level) -> anyhow::Result<Config> {
     info!("Reading config file {config_file:?}");
 
     let config: Config = Figment::new()
