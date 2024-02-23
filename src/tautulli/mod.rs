@@ -1,13 +1,17 @@
 // Purpose: Tautulli API wrapper
 use reqwest;
 use log::debug;
+use serde::Deserialize;
 
 pub mod structs;
 
+#[derive(Debug, Deserialize)]
 pub struct Tautulli {
-    server: String,
-    api_key: String,
+    pub address: String,
+    pub api_key: String,
     api_url: Option<String>,
+    #[serde(skip)]
+    client: Option<reqwest::Client>,
 }
 
 #[derive(Debug)]
@@ -23,40 +27,48 @@ pub struct SessionSummary {
     pub state: String,
     pub progress: String,
 }
-impl SessionSummary {
-    pub fn to_string(&self) -> String {
-        format!("User {} is watching {}. Currently the play is {} and {}% is watched", self.user, self.title, self.state, self.progress)
+impl std::fmt::Display for SessionSummary {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "User {} is watching {}. Currently the play is {} and {}% is watched", self.user, self.title, self.state, self.progress)
     }
 }
 
 impl Tautulli {
-    pub fn new(server: String, api_key: String) -> Tautulli {
-        let api_url = format!("{}/api/v2?apikey={}&cmd=", server, api_key);
+    pub fn new(address: String, api_key: String) -> Tautulli {
+        let api_url = format!("{}/api/v2?apikey={}&cmd=", address, api_key);
+        let client = reqwest::Client::builder()
+            .build()
+            .expect("Failed to create tautulli client");
         Tautulli {
             api_key,
-            server,
+            address,
             api_url: Some(api_url),
+            client: Some(client),
         }
     }
-    pub fn get(&self, command: &str) -> anyhow::Result<structs::Activity>{
+    pub async fn get(&self, command: &str) -> anyhow::Result<structs::Activity>{
         let url = format!("{}{}", self.api_url.as_ref().unwrap(), command);
-        let response = reqwest::blocking::get(&url)
-            .expect("Failed to send request")
-            .text()
-            .expect("Failed to get response body");
+        let response = self.client
+            .as_ref()
+            .expect("Failed to get client")
+            .get(&url)
+            .send()
+            .await
+            .expect("Failed to send request");
+        let response = response.text().await.expect("Failed to get response text");
         debug!("{}", response);
         let tautulli_response: structs::TautulliResponse = serde_json::from_str(&response).expect("Failed to parse JSON");
         Ok(tautulli_response.response.data)
     }
-    pub fn get_activity_summary(&self) -> anyhow::Result<ActivitySummary> {
-        let activity: structs::Activity = self.get("get_activity")?;
+    pub async fn get_activity_summary(&self) -> anyhow::Result<ActivitySummary> {
+        let activity: structs::Activity = self.get("get_activity").await?;
         Ok(ActivitySummary {
             stream_count: activity.stream_count,
             sessions: activity.sessions,
         })
     }
-    pub fn get_session_summary(&self) -> anyhow::Result<Vec<SessionSummary>> {
-        let activity: structs::Activity = self.get("get_activity")?;
+    pub async fn get_session_summary(&self) -> anyhow::Result<Vec<SessionSummary>> {
+        let activity: structs::Activity = self.get("get_activity").await?;
         let session_summaries: Vec<SessionSummary> = activity.sessions.iter().map(|session| {
             SessionSummary {
                 user: session.user.clone(),
