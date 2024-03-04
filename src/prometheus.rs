@@ -47,47 +47,8 @@ pub fn format_metrics(task_result: TaskResult) -> anyhow::Result<String> {
     let mut buffer = String::new();
     let mut registry = Registry::with_prefix("homers");
     match task_result {
-        TaskResult::Sonarr(episodes) => {
-            let sonarr_episode = Family::<SonarrLabels, Gauge<f64, AtomicU64>>::default();
-            registry.register(
-                "sonarr_episode",
-                format!("Sonarr episode status"),
-                sonarr_episode.clone(),
-            );
-            for episode in episodes {
-                let labels = SonarrLabels {
-                    sxe: episode.sxe.clone(),
-                    season_number: episode.season_number,
-                    episode_number: episode.episode_number,
-                    title: episode.title.clone(),
-                    serie: episode.serie.clone(),
-                };
-                sonarr_episode 
-                    .get_or_create(&labels)
-                    .set(if episode.has_file { 1.0 } else { 0.0 });
-            }
-        },
-        TaskResult::Tautulli(sessions) => {
-            let tautulli_session = Family::<TautulliLabels, Gauge<f64, AtomicU64>>::default();
-            registry.register(
-                "tautulli_session",
-                format!("Tautulli session status"),
-                tautulli_session.clone(),
-            );
-            for session in sessions {
-                let labels = TautulliLabels {
-                    user: session.user.clone(),
-                    title: session.title.clone(),
-                    state: session.state.clone(),
-                    media_type: session.media_type.clone(),
-                    season_number: session.season_number.clone(),
-                    episode_number: session.episode_number.clone(),
-                };
-                tautulli_session 
-                    .get_or_create(&labels)
-                    .set(session.progress.parse::<f64>().unwrap());
-            }
-        },
+        TaskResult::Sonarr(episodes) => format_sonarr_metrics(episodes, &mut registry),
+        TaskResult::Tautulli(sessions) => format_tautulli_metrics(sessions, &mut registry),
         TaskResult::Default => return Err(anyhow::anyhow!("No task result")),
     };
     encode(&mut buffer, &registry)?;
@@ -96,7 +57,6 @@ pub fn format_metrics(task_result: TaskResult) -> anyhow::Result<String> {
 
 pub fn format_sonarr_metrics(episodes: Vec<SonarrEpisode>, registry: &mut Registry) {
     debug!("Formatting {episodes:?} as Prometheus");
-    let mut registry = Registry::with_prefix("homers");
     let sonarr_episode = Family::<SonarrLabels, Gauge<f64, AtomicU64>>::default();
     registry.register(
         "sonarr_episode",
@@ -118,7 +78,6 @@ pub fn format_sonarr_metrics(episodes: Vec<SonarrEpisode>, registry: &mut Regist
 }
 pub fn format_tautulli_metrics(sessions: Vec<SessionSummary>, registry: &mut Registry) { 
     debug!("Formatting {sessions:?} as Prometheus");
-    let mut registry = Registry::with_prefix("homers");
     let tautulli_session = Family::<TautulliLabels, Gauge<f64, AtomicU64>>::default();
     registry.register(
         "tautulli_session",

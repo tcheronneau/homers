@@ -165,7 +165,7 @@ pub struct Series {
     pub clean_title: String,
     pub imdb_id: String,
     pub title_slug: String,
-    pub certification: String,
+    pub certification: Option<String>,
     pub genres: Vec<String>,
     pub tags: Vec<Value>,
     pub added: String,
