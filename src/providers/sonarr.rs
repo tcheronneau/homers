@@ -1,10 +1,11 @@
 use reqwest::header;
 use chrono::{Local, format::strftime::StrftimeItems, Duration};
-use serde::Deserialize;
+use serde::{Serialize, Deserialize};
 use lazy_static::lazy_static;
 use std::sync::{Mutex, Once,Arc};
+use log::debug;
 
-pub mod structs;
+use crate::providers::structs::sonarr;
 
 lazy_static! {
     static ref API_KEY: Mutex<Option<Arc<String>>> = Mutex::new(None);
@@ -26,15 +27,15 @@ fn get_api_key() -> Arc<String> {
     Arc::clone(API_KEY.lock().unwrap().as_ref().unwrap())
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone, Serialize)]
 pub struct Sonarr {
     pub address: String,
     pub api_key: String,
     #[serde(skip)]
-    client: Option<reqwest::Client>,
+    client: Option<reqwest::blocking::Client>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize, Clone, Serialize)]
 pub struct SonarrEpisode {
     pub sxe: String,
     pub season_number: i64,
@@ -42,11 +43,12 @@ pub struct SonarrEpisode {
     pub title: String,
     pub serie: String,
     pub air_date: String,
-    pub grabbed: bool,
+    #[serde(rename = "hasFile")]
+    pub has_file: bool,
 }
 impl std::fmt::Display for SonarrEpisode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} - {} - {} - {} - {}", self.serie, self.sxe, self.title, self.air_date, self.grabbed)
+        write!(f, "{} - {} - {} - {} - {}", self.serie, self.sxe, self.title, self.air_date, self.has_file)
     }
 }
 
@@ -57,7 +59,7 @@ impl Sonarr {
         let mut header_api_key = header::HeaderValue::from_str(&*get_api_key()).unwrap();
         header_api_key.set_sensitive(true);
         headers.insert("X-Api-Key", header_api_key);
-        let client = reqwest::Client::builder()
+        let client = reqwest::blocking::Client::builder()
             .default_headers(headers)
             .build()
             .expect("Failed to create sonarr client");
@@ -67,7 +69,7 @@ impl Sonarr {
             client: Some(client),
         }
     }
-    async fn get_today_calendars(&self) -> Vec<structs::Calendar> {
+    fn get_today_calendars(&self) -> Vec<sonarr::Calendar> {
         let url = format!("{}/api/v3/calendar", self.address);
         let local_datetime = Local::now();
 
@@ -88,14 +90,14 @@ impl Sonarr {
             .get(url)
             .query(&params)
             .send()
-            .await
             .expect("Failed to get sonarr calendar");
-        response.json().await.unwrap()
+        response.json().unwrap()
     }
 
-    pub async fn get_today_shows(&self) -> Vec<SonarrEpisode> {
-        let calendars = self.get_today_calendars().await;
+    pub fn get_today_shows(&self) -> Vec<SonarrEpisode> {
+        let calendars = self.get_today_calendars();
         calendars.iter().map(|calendar| {
+            debug!("{:?}", calendar);
             SonarrEpisode {
                 sxe: format!("S{:02}E{:02}", calendar.season_number, calendar.episode_number),
                 season_number: calendar.season_number,
@@ -103,31 +105,29 @@ impl Sonarr {
                 title: calendar.title.clone(),
                 serie: calendar.series.title.clone(),
                 air_date: calendar.air_date.clone(),
-                grabbed: calendar.grabbed,
+                has_file: calendar.has_file,
             }
         }).collect()
     }
 
-    pub async fn get_status(&self) -> structs::Status {
+    pub fn get_status(&self) -> sonarr::Status {
         let url = format!("{}/api/v3/system/status", self.address);
         let response = self.client
             .as_ref()
             .expect("Sonarr client not initialized")
             .get(url)
             .send()
-            .await
             .expect("Failed to get sonarr status");
-        response.json().await.unwrap()
+        response.json().unwrap()
     }
-    pub async fn debug(&self, uri: &str) -> String {
+    pub fn debug(&self, uri: &str) -> String {
         let url = format!("{}/api/v3/{}", self.address, uri);
         let response = self.client
             .as_ref()
             .expect("Sonarr client not initialized")
             .get(url)
             .send()
-            .await
             .expect("Failed to get sonarr status");
-        response.text().await.unwrap()
+        response.text().unwrap()
     }
 }

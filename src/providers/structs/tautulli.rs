@@ -262,8 +262,8 @@ pub struct Marker {
     pub type_field: String,
     pub start_time_offset: i64,
     pub end_time_offset: i64,
-    pub first: bool,
+    pub first: Option<bool>,
     #[serde(rename = "final")]
-    pub final_field: bool,
+    pub final_field: Option<bool>,
 }
 

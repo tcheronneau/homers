@@ -1,36 +1,66 @@
+use rocket::figment::providers::Serialized;
 use figment::{Figment, providers::{Format, Toml, Env}};
 use std::path::PathBuf;
 use log::{debug, info, Level};
 use serde::Deserialize;
+use rocket::serde::Serialize;
 
-use crate::tautulli::Tautulli;
-use crate::sonarr::Sonarr;
+use crate::providers::tautulli::Tautulli;
+use crate::providers::sonarr::Sonarr;
 
-#[derive(Debug,Deserialize)]
+#[derive(Debug,Deserialize, Clone, Serialize)]
 pub struct Config {
-    pub tautulli: Tautulli,
-    pub sonarr: Sonarr,
-    //pub http: rocket::Config,
+    pub tautulli: Option<Tautulli>,
+    pub sonarr: Option<Sonarr>,
+    pub http: rocket::Config,
 }
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            tautulli: None, 
+            sonarr: None, 
+            http: rocket::Config::default(),
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub enum Task {
+    Sonarr(Sonarr),
+    Tautulli(Tautulli),
+    Default,
+}
+
 
 pub fn read(config_file: PathBuf, log_level: Level) -> anyhow::Result<Config> {
     info!("Reading config file {config_file:?}");
 
     let config: Config = Figment::new()
-        //.merge(Serialized::defaults(Config::default()))
+        .merge(Serialized::defaults(Config::default()))
         .merge(Toml::file(config_file))
-        //.merge((
-        //    "http.log_level",
-        //    match log_level {
-        //        Level::Trace | Level::Debug => rocket::log::LogLevel::Debug,
-        //        Level::Info | Level::Warn => rocket::log::LogLevel::Normal,
-        //        Level::Error => rocket::log::LogLevel::Critical,
-        //    },
-        //))
+        .merge((
+            "http.log_level",
+            match log_level {
+                Level::Trace | Level::Debug => rocket::log::LogLevel::Debug,
+                Level::Info | Level::Warn => rocket::log::LogLevel::Normal,
+                Level::Error => rocket::log::LogLevel::Critical,
+            },
+        ))
         .merge(Env::prefixed("HOMERS_").split("_"))
         .extract()?;
 
     debug!("Read config is {:?}", config);
 
     Ok(config)
+}
+
+pub fn get_tasks(config: Config) -> Vec<Task> {
+    let mut tasks = Vec::new();
+    if let Some(sonarr) = config.sonarr {
+        tasks.push(Task::Sonarr(sonarr));
+    }
+    if let Some(tautulli) = config.tautulli {
+        tasks.push(Task::Tautulli(tautulli));
+    }
+    tasks
 }
