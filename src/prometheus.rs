@@ -43,14 +43,16 @@ struct TautulliLabels {
     pub episode_number: Option<String>,
 }
 
-pub fn format_metrics(task_result: TaskResult) -> anyhow::Result<String> {
+pub fn format_metrics(task_result: Vec<TaskResult>) -> anyhow::Result<String> {
     let mut buffer = String::new();
     let mut registry = Registry::with_prefix("homers");
-    match task_result {
-        TaskResult::Sonarr(episodes) => format_sonarr_metrics(episodes, &mut registry),
-        TaskResult::Tautulli(sessions) => format_tautulli_metrics(sessions, &mut registry),
-        TaskResult::Default => return Err(anyhow::anyhow!("No task result")),
-    };
+    for task_result in task_result {
+        match task_result {
+            TaskResult::Sonarr(episodes) => format_sonarr_metrics(episodes, &mut registry),
+            TaskResult::Tautulli(sessions) => format_tautulli_metrics(sessions, &mut registry),
+            TaskResult::Default => return Err(anyhow::anyhow!("No task result")),
+        }
+    }
     encode(&mut buffer, &registry)?;
     Ok(buffer)
 }

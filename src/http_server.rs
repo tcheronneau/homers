@@ -75,7 +75,7 @@ async fn metrics(
     unscheduled_tasks: &State<Vec<Task>>,
     accept: &Accept,
 ) -> Result<MetricsResponse,MetricsError> {
-    Ok(serve_metrics(get_metrics_format(accept), unscheduled_tasks).await)
+    Ok(serve_metrics(Format::Prometheus, unscheduled_tasks).await)
 }
 
 async fn serve_metrics(
@@ -123,21 +123,18 @@ async fn wait_for_metrics(
     _format: Format,
     mut join_set: JoinSet<Result<TaskResult, JoinError>>,
 ) -> anyhow::Result<String> {
-    //let mut sonarr_metrics = Vec::new(); 
-    //let mut tautulli_metrics = Vec::new();
-    let mut metrics = String::new();
+    let mut tasks: Vec<TaskResult> = Vec::new();
     while let Some(result) = join_set.join_next().await {
         match result? {
             Ok(tr) => {
-                let formated_metrics = format_metrics(tr);
-                metrics.push_str(&formated_metrics?);
+                tasks.push(tr);
             }
             Err(e) => {
                 error!("Error while fetching metrics: {e}");
             }
         }
     }
-    Ok(metrics)
+    format_metrics(tasks)
 }
 
 const fn get_content_type_params(version: &str) -> [(&str, &str); 2] {
