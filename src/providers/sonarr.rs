@@ -110,7 +110,7 @@ impl Sonarr {
         }).collect()
     }
 
-    pub fn get_status(&self) -> sonarr::Status {
+    pub fn _get_status(&self) -> sonarr::Status {
         let url = format!("{}/api/v3/system/status", self.address);
         let response = self.client
             .as_ref()
@@ -120,7 +120,7 @@ impl Sonarr {
             .expect("Failed to get sonarr status");
         response.json().unwrap()
     }
-    pub fn debug(&self, uri: &str) -> String {
+    pub fn _debug(&self, uri: &str) -> String {
         let url = format!("{}/api/v3/{}", self.address, uri);
         let response = self.client
             .as_ref()

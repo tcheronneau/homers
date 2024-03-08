@@ -7,8 +7,6 @@ mod config;
 mod providers;
 mod prometheus;
 
-use crate::providers::sonarr::Sonarr;
-
 #[cfg(debug_assertions)]
 #[derive(Copy, Clone, Debug, Default)]
 pub struct DebugLevel;
@@ -35,22 +33,6 @@ struct Args {
     config: PathBuf,
 }
 
-//#[tokio::main]
-//async fn main() {
-    //let tautulli = Tautulli::new(config.tautulli.address, config.tautulli.api_key);
-    //let sonarr = Sonarr::new(config.sonarr.address, config.sonarr.api_key);
-    //let session_summaries = tautulli.get_session_summary().await;
-
-    //
-    //for item in session_summaries.expect("Failed to get session summaries") {
-    //    println!("{}", item);
-    //}
-    //let shows = sonarr.get_today_shows().await;
-    ////let status = sonarr.debug("system/status").await;
-    //for item in shows {
-    //    println!("{}", item);
-    //}
-//}
 #[launch]
 pub async fn start_server() -> Rocket<Build> {
     let args = Args::parse();
@@ -63,23 +45,4 @@ pub async fn start_server() -> Rocket<Build> {
     simple_logger::init_with_level(log_level).expect("Logging successfully initialized");
     let config = config::read(args.config.clone(), log_level).expect("Config successfully read");
     http_server::configure_rocket(config).await
-    //let sonarr_config = config.sonarr.clone().expect("Sonarr config not found");
-    //let sonarr = Sonarr::new(sonarr_config.address, sonarr_config.api_key);
-    //let shows = sonarr.get_today_shows();
-    //for item in shows {
-    //    println!("{}", item);
-    //}
-    //let tautulli = Tautulli::new(config.tautulli.address, config.tautulli.api_key);
-    //let sonarr = Sonarr::new(config.sonarr.address, config.sonarr.api_key);
-    //let session_summaries = tautulli.get_session_summary().await;
-
-    //
-    //for item in session_summaries.expect("Failed to get session summaries") {
-    //    println!("{}", item);
-    //}
-    //let shows = sonarr.get_today_shows().await;
-    ////let status = sonarr.debug("system/status").await;
-    //for item in shows {
-    //    println!("{}", item);
-    //}
 }

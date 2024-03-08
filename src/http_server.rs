@@ -1,5 +1,5 @@
 use rocket::{get, routes, Build, Responder, Rocket, State};
-use rocket::http::{Accept, ContentType, Header, MediaType, QMediaType, Status};
+use rocket::http::{Accept, ContentType, MediaType, QMediaType, Status};
 use rocket::tokio::task;
 use rocket::tokio::task::JoinSet;
 use once_cell::sync::Lazy;
@@ -9,22 +9,15 @@ use std::process::exit;
 use std::cmp::Ordering;
 
 
-use crate::prometheus::{format_sonarr_metrics, format_tautulli_session_metrics, Format, TaskResult, format_metrics};
+use crate::prometheus::{Format, TaskResult, format_metrics};
 use crate::config::{Config, get_tasks, Task};
-use crate::providers::sonarr::{SonarrEpisode, Sonarr};
-use crate::providers::tautulli::{Tautulli, SessionSummary};
+use crate::providers::sonarr::Sonarr;
+use crate::providers::tautulli::Tautulli;
 
 #[derive(Responder, Debug, PartialEq, Eq)]
 #[response(content_type = "text/plain; charset=utf-8")]
 pub struct MetricsError {
     response: (Status, String),
-}
-impl MetricsError {
-    fn new(status: Status, response: String) -> Self {
-        Self {
-            response: (status, response),
-        }
-    }
 }
 
 
@@ -65,7 +58,7 @@ pub async fn configure_rocket(config: Config) -> Rocket<Build> {
 #[allow(clippy::needless_pass_by_value)]
 fn index(
 ) -> Result<String,MetricsError> {
-    let mut response = "Hello Homers".to_string(); 
+    let response = "Hello Homers".to_string(); 
     Ok(response)
 }
 
@@ -73,7 +66,7 @@ fn index(
 #[get("/metrics")]
 async fn metrics(
     unscheduled_tasks: &State<Vec<Task>>,
-    accept: &Accept,
+    _accept: &Accept,
 ) -> Result<MetricsResponse,MetricsError> {
     Ok(serve_metrics(Format::Prometheus, unscheduled_tasks).await)
 }

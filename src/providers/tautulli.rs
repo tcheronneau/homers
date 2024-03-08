@@ -13,11 +13,6 @@ pub struct Tautulli {
     client: Option<reqwest::blocking::Client>,
 }
 
-#[derive(Debug)]
-pub struct ActivitySummary {
-    stream_count: String,
-    sessions: Vec<tautulli::Session>,
-}
 
 #[derive(Debug)]
 pub struct SessionSummary {
@@ -77,7 +72,6 @@ impl Tautulli {
     }
     pub fn get_session_summary(&self) -> Vec<SessionSummary> {
         let get_activities = self.get("get_activity").expect("Failed to get activity");
-        //let activity: tautulli::Activity = serde_json::from_str(&get_activities).expect("Failed to parse JSON");
         let activity: tautulli::Activity = get_activities.into();
         let session_summaries: Vec<SessionSummary> = activity.sessions.iter().map(|session| {
             if session.media_type == "episode" {
