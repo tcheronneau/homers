@@ -25,6 +25,9 @@ pub struct SessionSummary {
     pub title: String,
     pub state: String,
     pub progress: String,
+    pub quality: String,
+    pub quality_profile: String,
+    pub video_stream: String,
     pub media_type: String,
     pub season_number: Option<String>,
     pub episode_number: Option<String>,
@@ -34,7 +37,7 @@ impl std::fmt::Display for SessionSummary {
         if self.media_type == "episode" {
             write!(f, "User {} is watching {} S{:02}E{:02}. Currently the play is {} and {}% is watched", self.user, self.title, self.season_number.as_ref().unwrap(), self.episode_number.as_ref().unwrap(), self.state, self.progress)
         } else {
-            write!(f, "User {} is watching {}. Currently the play is {} and {}% is watched", self.user, self.title, self.state, self.progress)
+            write!(f, "User {} is watching {} in quality {} stream quality {} on {}. Currently the play is {} and {}% is watched", self.user, self.title,self.quality, self.quality_profile, self.video_stream, self.state, self.progress)
         }
     }
 }
@@ -52,7 +55,7 @@ impl Tautulli {
             client: Some(client),
         }
     }
-    pub fn get(&self, command: &str) -> anyhow::Result<tautulli::Activity>{
+    pub fn get(&self, command: &str) -> anyhow::Result<String> {
         let url = format!("{}{}", self.api_url.as_ref().unwrap(), command);
         let response = self.client
             .as_ref()
@@ -62,18 +65,24 @@ impl Tautulli {
             .expect("Failed to send request");
         let response = response.text().expect("Failed to get response text");
         debug!("{}", response);
-        let tautulli_response: tautulli::TautulliResponse = serde_json::from_str(&response).expect("Failed to parse JSON");
-        Ok(tautulli_response.response.data)
+        Ok(response)
     }
     pub fn get_activity_summary(&self) -> anyhow::Result<ActivitySummary> {
-        let activity: tautulli::Activity = self.get("get_activity")?;
+        let get_activities = self.get("get_activity").expect("Failed to get activity");
+        let activity: tautulli::Activity = serde_json::from_str(&get_activities).expect("Failed to parse JSON");
         Ok(ActivitySummary {
             stream_count: activity.stream_count,
             sessions: activity.sessions,
         })
     }
+    pub fn get_libraries(&self) -> anyhow::Result<Vec<tautulli::Library>>{
+        let get_libraries = self.get("get_libraries").expect("Failed to get libraries");
+        let libraries: tautulli::LibraryResponse = serde_json::from_str(&get_libraries).expect("Failed to parse JSON");
+        Ok(libraries.data)
+    }
     pub fn get_session_summary(&self) -> Vec<SessionSummary> {
-        let activity: tautulli::Activity = self.get("get_activity").expect("Failed to get activity summary");
+        let get_activities = self.get("get_activity").expect("Failed to get activity");
+        let activity: tautulli::Activity = serde_json::from_str(&get_activities).expect("Failed to parse JSON");
         let session_summaries: Vec<SessionSummary> = activity.sessions.iter().map(|session| {
             if session.media_type == "episode" {
                 SessionSummary {
@@ -81,6 +90,9 @@ impl Tautulli {
                     title: session.grandparent_title.clone(),
                     state: session.state.clone(),
                     progress: session.progress_percent.clone(),
+                    quality: session.video_full_resolution.clone(),
+                    quality_profile: session.quality_profile.clone(),
+                    video_stream: session.video_decision.clone(),
                     media_type: session.media_type.clone(),
                     season_number: Some(session.parent_media_index.clone()),
                     episode_number: Some(session.media_index.clone()),
@@ -91,6 +103,9 @@ impl Tautulli {
                     title: session.title.clone(),
                     state: session.state.clone(),
                     progress: session.progress_percent.clone(),
+                    quality: session.video_full_resolution.clone(),
+                    quality_profile: session.quality_profile.clone(),
+                    video_stream: session.video_decision.clone(),
                     media_type: session.media_type.clone(),
                     season_number: None,
                     episode_number: None,

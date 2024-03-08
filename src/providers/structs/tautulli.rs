@@ -267,3 +267,72 @@ pub struct Marker {
     pub final_field: Option<bool>,
 }
 
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LibraryResponse {
+    pub records_filtered: i64,
+    pub records_total: i64,
+    pub data: Vec<Library>,
+    pub draw: i64,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Library {
+    #[serde(rename = "row_id")]
+    pub row_id: i64,
+    #[serde(rename = "server_id")]
+    pub server_id: String,
+    #[serde(rename = "section_id")]
+    pub section_id: i64,
+    #[serde(rename = "section_name")]
+    pub section_name: String,
+    #[serde(rename = "section_type")]
+    pub section_type: String,
+    pub count: i64,
+    #[serde(rename = "parent_count")]
+    pub parent_count: Option<i64>,
+    #[serde(rename = "child_count")]
+    pub child_count: Option<i64>,
+    #[serde(rename = "library_thumb")]
+    pub library_thumb: String,
+    #[serde(rename = "library_art")]
+    pub library_art: String,
+    pub plays: i64,
+    pub duration: i64,
+    #[serde(rename = "last_accessed")]
+    pub last_accessed: Option<i64>,
+    #[serde(rename = "history_row_id")]
+    pub history_row_id: Option<i64>,
+    #[serde(rename = "last_played")]
+    pub last_played: Option<String>,
+    #[serde(rename = "rating_key")]
+    pub rating_key: Option<i64>,
+    #[serde(rename = "media_type")]
+    pub media_type: Option<String>,
+    pub thumb: Option<String>,
+    #[serde(rename = "parent_title")]
+    pub parent_title: Option<String>,
+    pub year: Option<i64>,
+    #[serde(rename = "media_index")]
+    pub media_index: Value,
+    #[serde(rename = "parent_media_index")]
+    pub parent_media_index: Value,
+    #[serde(rename = "content_rating")]
+    pub content_rating: Option<String>,
+    pub labels: Vec<Value>,
+    pub live: Option<i64>,
+    #[serde(rename = "originally_available_at")]
+    pub originally_available_at: Option<String>,
+    pub guid: Option<String>,
+    #[serde(rename = "do_notify")]
+    pub do_notify: i64,
+    #[serde(rename = "do_notify_created")]
+    pub do_notify_created: i64,
+    #[serde(rename = "keep_history")]
+    pub keep_history: i64,
+    #[serde(rename = "is_active")]
+    pub is_active: i64,
+}
+
