@@ -46,6 +46,7 @@
         buildInputs = [ 
           pkg-config
           openssl.dev
+          rust-analyzer
           rustc
           cargo
         ];
