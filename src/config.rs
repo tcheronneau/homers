@@ -27,7 +27,8 @@ impl Default for Config {
 #[derive(Debug, Deserialize, Clone)]
 pub enum Task {
     Sonarr(Sonarr),
-    Tautulli(Tautulli),
+    TautulliSession(Tautulli),
+    TautulliLibrary(Tautulli),
     Default,
 }
 
@@ -60,7 +61,8 @@ pub fn get_tasks(config: Config) -> Vec<Task> {
         tasks.push(Task::Sonarr(sonarr));
     }
     if let Some(tautulli) = config.tautulli {
-        tasks.push(Task::Tautulli(tautulli));
+        tasks.push(Task::TautulliSession(tautulli.clone()));
+        tasks.push(Task::TautulliLibrary(tautulli));
     }
     tasks
 }

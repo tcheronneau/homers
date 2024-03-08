@@ -8,7 +8,6 @@ mod providers;
 mod prometheus;
 
 use crate::providers::sonarr::Sonarr;
-use crate::providers::tautulli::Tautulli;
 
 #[cfg(debug_assertions)]
 #[derive(Copy, Clone, Debug, Default)]
@@ -52,34 +51,25 @@ struct Args {
     //    println!("{}", item);
     //}
 //}
-//#[launch]
-//pub async fn start_server() -> Rocket<Build> {
-//    let args = Args::parse();
-//
-//    let log_level = args
-//        .verbose
-//        .log_level()
-//        .expect("Log level cannot be not available");
-//
-//    simple_logger::init_with_level(log_level).expect("Logging successfully initialized");
-//    let config = config::read(args.config.clone(), log_level).expect("Config successfully read");
-//    http_server::configure_rocket(config).await
-fn main() {
+#[launch]
+pub async fn start_server() -> Rocket<Build> {
+    let args = Args::parse();
+
+    let log_level = args
+        .verbose
+        .log_level()
+        .expect("Log level cannot be not available");
+
+    simple_logger::init_with_level(log_level).expect("Logging successfully initialized");
+    let config = config::read(args.config.clone(), log_level).expect("Config successfully read");
+    http_server::configure_rocket(config).await
     //let sonarr_config = config.sonarr.clone().expect("Sonarr config not found");
     //let sonarr = Sonarr::new(sonarr_config.address, sonarr_config.api_key);
     //let shows = sonarr.get_today_shows();
     //for item in shows {
     //    println!("{}", item);
     //}
-    let args = Args::parse();
-    let log_level = args
-        .verbose
-        .log_level()
-        .expect("Log level cannot be not available");
-    let config = config::read(args.config.clone(), log_level).expect("Config successfully read");
-    let tautulli_cfg = config.tautulli.clone().expect("Tautulli config not found");
-    let tautulli = Tautulli::new(tautulli_cfg.address, tautulli_cfg.api_key);
-    println!("{:?}", tautulli.get_libraries());
+    //let tautulli = Tautulli::new(config.tautulli.address, config.tautulli.api_key);
     //let sonarr = Sonarr::new(config.sonarr.address, config.sonarr.api_key);
     //let session_summaries = tautulli.get_session_summary().await;
 

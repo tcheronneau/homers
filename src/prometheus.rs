@@ -8,6 +8,7 @@ use std::sync::atomic::AtomicU64;
 
 use crate::providers::sonarr::SonarrEpisode;
 use crate::providers::tautulli::SessionSummary;
+use crate::providers::structs::tautulli::Library;
 
 
 #[derive(PartialEq, Debug, Eq, Copy, Clone)]
@@ -18,7 +19,8 @@ pub enum Format {
 
 pub enum TaskResult {
     Sonarr(Vec<SonarrEpisode>),
-    Tautulli(Vec<SessionSummary>),
+    TautulliSession(Vec<SessionSummary>),
+    TautulliLibrary(Vec<Library>),
     Default,
 }
 
@@ -33,13 +35,21 @@ struct SonarrLabels {
 }
 
 #[derive(Clone, Hash, Eq, PartialEq, EncodeLabelSet, Debug)]
-struct TautulliLabels {
+struct TautulliSessionLabels {
     pub user: String,
     pub title: String,
     pub state: String,
     pub media_type: String,
     pub season_number: Option<String>,
     pub episode_number: Option<String>,
+}
+#[derive(Clone, Hash, Eq, PartialEq, EncodeLabelSet, Debug)]
+struct TautulliLibraryLabels {
+    pub section_name: String,
+    pub section_type: String,
+    pub count: String,
+    pub parent_count: Option<String>,
+    pub child_count: Option<String>,
 }
 
 pub fn format_metrics(task_result: Vec<TaskResult>) -> anyhow::Result<String> {
@@ -48,7 +58,8 @@ pub fn format_metrics(task_result: Vec<TaskResult>) -> anyhow::Result<String> {
     for task_result in task_result {
         match task_result {
             TaskResult::Sonarr(episodes) => format_sonarr_metrics(episodes, &mut registry),
-            TaskResult::Tautulli(sessions) => format_tautulli_metrics(sessions, &mut registry),
+            TaskResult::TautulliSession(sessions) => format_tautulli_session_metrics(sessions, &mut registry),
+            TaskResult::TautulliLibrary(libraries) => format_tautulli_library_metrics(libraries, &mut registry),
             TaskResult::Default => return Err(anyhow::anyhow!("No task result")),
         }
     }
@@ -77,16 +88,16 @@ pub fn format_sonarr_metrics(episodes: Vec<SonarrEpisode>, registry: &mut Regist
             .set(if episode.has_file { 1.0 } else { 0.0 });
     }
 }
-pub fn format_tautulli_metrics(sessions: Vec<SessionSummary>, registry: &mut Registry) { 
+pub fn format_tautulli_session_metrics(sessions: Vec<SessionSummary>, registry: &mut Registry) { 
     debug!("Formatting {sessions:?} as Prometheus");
-    let tautulli_session = Family::<TautulliLabels, Gauge<f64, AtomicU64>>::default();
+    let tautulli_session = Family::<TautulliSessionLabels, Gauge<f64, AtomicU64>>::default();
     registry.register(
         "tautulli_session",
         format!("Tautulli session status"),
         tautulli_session.clone(),
     );
     for session in sessions {
-        let labels = TautulliLabels {
+        let labels = TautulliSessionLabels {
             user: session.user.clone(),
             title: session.title.clone(),
             state: session.state.clone(),
@@ -97,5 +108,26 @@ pub fn format_tautulli_metrics(sessions: Vec<SessionSummary>, registry: &mut Reg
         tautulli_session 
             .get_or_create(&labels)
             .set(session.progress.parse::<f64>().unwrap());
+    }
+}
+pub fn format_tautulli_library_metrics(libraries: Vec<Library>, registry: &mut Registry) { 
+    debug!("Formatting {libraries:?} as Prometheus");
+    let tautulli_library = Family::<TautulliLibraryLabels, Gauge<f64, AtomicU64>>::default();
+    registry.register(
+        "tautulli_library",
+        format!("Tautulli library status"),
+        tautulli_library.clone(),
+    );
+    for library in libraries {
+        let labels = TautulliLibraryLabels {
+            section_name: library.section_name.clone(),
+            section_type: library.section_type.clone(),
+            count: library.count.clone(),
+            parent_count: library.parent_count.clone(),
+            child_count: library.child_count.clone(),
+        };
+        tautulli_library 
+            .get_or_create(&labels)
+            .set(library.is_active as f64);
     }
 }

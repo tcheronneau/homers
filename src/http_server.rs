@@ -9,7 +9,7 @@ use std::process::exit;
 use std::cmp::Ordering;
 
 
-use crate::prometheus::{format_sonarr_metrics, format_tautulli_metrics, Format, TaskResult, format_metrics};
+use crate::prometheus::{format_sonarr_metrics, format_tautulli_session_metrics, Format, TaskResult, format_metrics};
 use crate::config::{Config, get_tasks, Task};
 use crate::providers::sonarr::{SonarrEpisode, Sonarr};
 use crate::providers::tautulli::{Tautulli, SessionSummary};
@@ -96,10 +96,15 @@ async fn serve_metrics(
                     let result = sonarr.get_today_shows();
                     TaskResult::Sonarr(result)
                 },
-                Task::Tautulli(tautulli) => {
+                Task::TautulliSession(tautulli) => {
                     let tautulli = Tautulli::new(tautulli.address, tautulli.api_key);
                     let result = tautulli.get_session_summary();
-                    TaskResult::Tautulli(result)
+                    TaskResult::TautulliSession(result)
+                },
+                Task::TautulliLibrary(tautulli) => {
+                    let tautulli = Tautulli::new(tautulli.address, tautulli.api_key);
+                    let result = tautulli.get_libraries();
+                    TaskResult::TautulliLibrary(result)
                 },
                 Task::Default => TaskResult::Default,
             }

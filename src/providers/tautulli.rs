@@ -55,7 +55,7 @@ impl Tautulli {
             client: Some(client),
         }
     }
-    pub fn get(&self, command: &str) -> anyhow::Result<String> {
+    pub fn get(&self, command: &str) -> anyhow::Result<tautulli::TautulliData> {
         let url = format!("{}{}", self.api_url.as_ref().unwrap(), command);
         let response = self.client
             .as_ref()
@@ -65,24 +65,20 @@ impl Tautulli {
             .expect("Failed to send request");
         let response = response.text().expect("Failed to get response text");
         debug!("{}", response);
-        Ok(response)
+        println!("{}", response);
+        let tautulli_response: tautulli::TautulliResponse = serde_json::from_str(&response).expect("Failed to parse JSON");
+        Ok(tautulli_response.response.data)
     }
-    pub fn get_activity_summary(&self) -> anyhow::Result<ActivitySummary> {
-        let get_activities = self.get("get_activity").expect("Failed to get activity");
-        let activity: tautulli::Activity = serde_json::from_str(&get_activities).expect("Failed to parse JSON");
-        Ok(ActivitySummary {
-            stream_count: activity.stream_count,
-            sessions: activity.sessions,
-        })
-    }
-    pub fn get_libraries(&self) -> anyhow::Result<Vec<tautulli::Library>>{
+    pub fn get_libraries(&self) -> Vec<tautulli::Library>{
         let get_libraries = self.get("get_libraries").expect("Failed to get libraries");
-        let libraries: tautulli::LibraryResponse = serde_json::from_str(&get_libraries).expect("Failed to parse JSON");
-        Ok(libraries.data)
+        println!("{:?}", get_libraries);
+        let libraries: Vec<tautulli::Library> = get_libraries.into();
+        libraries
     }
     pub fn get_session_summary(&self) -> Vec<SessionSummary> {
         let get_activities = self.get("get_activity").expect("Failed to get activity");
-        let activity: tautulli::Activity = serde_json::from_str(&get_activities).expect("Failed to parse JSON");
+        //let activity: tautulli::Activity = serde_json::from_str(&get_activities).expect("Failed to parse JSON");
+        let activity: tautulli::Activity = get_activities.into();
         let session_summaries: Vec<SessionSummary> = activity.sessions.iter().map(|session| {
             if session.media_type == "episode" {
                 SessionSummary {
