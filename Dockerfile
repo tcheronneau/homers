@@ -15,7 +15,7 @@ FROM debian:trixie-slim
 WORKDIR /app
 ENV ROCKET_ADDRESS=0.0.0.0
 COPY --from=builder /usr/local/cargo/bin/homers /usr/local/bin
-COPY config.kube.local.toml /app/config.toml
+COPY config.toml /app/config.toml
 RUN apt-get update && \
     apt-get install -y sqlite3 ca-certificates
 USER 1000
