@@ -18,6 +18,10 @@
 
         cargoSha256 =
           "sha256-SNGYOUpycIegRvELolBk3PpbeMe/GfW2lFVksu8YLJo=";
+        buildInputs = [ 
+          pkg-config
+          openssl.dev
+        ];
         nativeBuildInputs = [ 
           rustc
           cargo
