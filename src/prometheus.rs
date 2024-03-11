@@ -8,6 +8,7 @@ use std::sync::atomic::AtomicU64;
 
 use crate::providers::sonarr::SonarrEpisode;
 use crate::providers::tautulli::SessionSummary;
+use crate::providers::radarr::RadarrMovie;
 use crate::providers::structs::tautulli::Library;
 
 
@@ -21,6 +22,7 @@ pub enum TaskResult {
     Sonarr(Vec<SonarrEpisode>),
     TautulliSession(Vec<SessionSummary>),
     TautulliLibrary(Vec<Library>),
+    Radarr(Vec<RadarrMovie>),
     Default,
 }
 
@@ -51,6 +53,12 @@ struct TautulliLibraryLabels {
     pub parent_count: Option<String>,
     pub child_count: Option<String>,
 }
+#[derive(Clone, Hash, Eq, PartialEq, EncodeLabelSet, Debug)]
+struct RadarrLabels {
+    pub title: String,
+    pub is_available: i8,
+    pub monitored: i8,
+}
 
 pub fn format_metrics(task_result: Vec<TaskResult>) -> anyhow::Result<String> {
     let mut buffer = String::new();
@@ -60,6 +68,7 @@ pub fn format_metrics(task_result: Vec<TaskResult>) -> anyhow::Result<String> {
             TaskResult::Sonarr(episodes) => format_sonarr_metrics(episodes, &mut registry),
             TaskResult::TautulliSession(sessions) => format_tautulli_session_metrics(sessions, &mut registry),
             TaskResult::TautulliLibrary(libraries) => format_tautulli_library_metrics(libraries, &mut registry),
+            TaskResult::Radarr(movies) => format_radarr_metrics(movies, &mut registry),
             TaskResult::Default => return Err(anyhow::anyhow!("No task result")),
         }
     }
@@ -129,5 +138,25 @@ pub fn format_tautulli_library_metrics(libraries: Vec<Library>, registry: &mut R
         tautulli_library 
             .get_or_create(&labels)
             .set(library.is_active as f64);
+    }
+}
+
+pub fn format_radarr_metrics(movies: Vec<RadarrMovie>, registry: &mut Registry) {
+    debug!("Formatting {movies:?} as Prometheus");
+    let radarr_movie = Family::<RadarrLabels, Gauge<f64, AtomicU64>>::default();
+    registry.register(
+        "radarr_movie",
+        format!("Radarr movie status"),
+        radarr_movie.clone(),
+    );
+    for movie in movies {
+        let labels = RadarrLabels {
+            title: movie.title.clone(),
+            is_available: movie.is_available as i8,
+            monitored: movie.monitored as i8,
+        };
+        radarr_movie 
+            .get_or_create(&labels)
+            .set(if movie.has_file { 1.0 } else { 0.0 });
     }
 }

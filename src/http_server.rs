@@ -13,6 +13,7 @@ use crate::prometheus::{Format, TaskResult, format_metrics};
 use crate::config::{Config, get_tasks, Task};
 use crate::providers::sonarr::Sonarr;
 use crate::providers::tautulli::Tautulli;
+use crate::providers::radarr::Radarr;
 
 #[derive(Responder, Debug, PartialEq, Eq)]
 #[response(content_type = "text/plain; charset=utf-8")]
@@ -98,6 +99,11 @@ async fn serve_metrics(
                     let tautulli = Tautulli::new(tautulli.address, tautulli.api_key);
                     let result = tautulli.get_libraries();
                     TaskResult::TautulliLibrary(result)
+                },
+                Task::Radarr(radarr) => {
+                    let radarr = Radarr::new(radarr.address, radarr.api_key);
+                    let result = radarr.get_missing_movies();
+                    TaskResult::Radarr(result)
                 },
                 Task::Default => TaskResult::Default,
             }

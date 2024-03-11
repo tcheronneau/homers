@@ -7,11 +7,13 @@ use rocket::serde::Serialize;
 
 use crate::providers::tautulli::Tautulli;
 use crate::providers::sonarr::Sonarr;
+use crate::providers::radarr::Radarr;
 
 #[derive(Debug,Deserialize, Clone, Serialize)]
 pub struct Config {
     pub tautulli: Option<Tautulli>,
     pub sonarr: Option<Sonarr>,
+    pub radarr: Option<Radarr>,
     pub http: rocket::Config,
 }
 impl Default for Config {
@@ -19,6 +21,7 @@ impl Default for Config {
         Self {
             tautulli: None, 
             sonarr: None, 
+            radarr: None,
             http: rocket::Config::default(),
         }
     }
@@ -27,6 +30,7 @@ impl Default for Config {
 #[derive(Debug, Deserialize, Clone)]
 pub enum Task {
     Sonarr(Sonarr),
+    Radarr(Radarr),
     TautulliSession(Tautulli),
     TautulliLibrary(Tautulli),
     Default,
@@ -63,6 +67,9 @@ pub fn get_tasks(config: Config) -> Vec<Task> {
     if let Some(tautulli) = config.tautulli {
         tasks.push(Task::TautulliSession(tautulli.clone()));
         tasks.push(Task::TautulliLibrary(tautulli));
+    }
+    if let Some(radarr) = config.radarr {
+        tasks.push(Task::Radarr(radarr));
     }
     tasks
 }
