@@ -29,14 +29,23 @@
           openssl.dev
         ];
       };
-      packages.docker = dockerTools.buildLayeredImage {
+      packages.docker = dockerTools.buildImage {
         name = "mcth/${name}";
-        contents = [ cacert ];
         tag = "${system}-${version}";
         created = "now";
+        copyToRoot = pkgs.buildEnv {
+          name = "homers";
+          paths = [ 
+            (pkgs.writeTextDir "/etc/homers/config.toml" (builtins.readFile ./config.toml))
+            pkgs.cacert
+          ]; 
+          pathsToLink = [ "/etc" ];
+        };
         config = {
           Cmd = [
             "${self.packages.${system}.homers}/bin/${name}"
+            "--config"
+            "/etc/homers/config.toml"
           ];
           ExposedPorts = {
             "8000/tcp" = { };

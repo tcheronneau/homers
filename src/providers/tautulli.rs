@@ -7,6 +7,7 @@ use crate::providers::structs::tautulli;
 #[derive(Debug, Deserialize, Clone, Serialize)]
 pub struct Tautulli {
     pub address: String,
+    #[serde(rename = "apikey")]
     pub api_key: String,
     api_url: Option<String>,
     #[serde(skip)]

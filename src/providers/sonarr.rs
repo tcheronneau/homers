@@ -30,6 +30,7 @@ fn get_api_key() -> Arc<String> {
 #[derive(Debug, Deserialize, Clone, Serialize)]
 pub struct Sonarr {
     pub address: String,
+    #[serde(rename = "apikey")]
     pub api_key: String,
     #[serde(skip)]
     client: Option<reqwest::blocking::Client>,
@@ -68,6 +69,16 @@ impl Sonarr {
             api_key,
             client: Some(client),
         }
+    }
+    fn get_calendars(&self, start_date: String, end_data: String) -> Vec<sonarr::Calendar> {
+        let url = format!("{}/api/v3/calendar", self.address);
+        let response = self.client
+            .as_ref()
+            .expect("Sonarr client not initialized")
+            .get(url)
+            .send()
+            .expect("Failed to get sonarr calendar");
+        response.json().unwrap()
     }
     fn get_today_calendars(&self) -> Vec<sonarr::Calendar> {
         let url = format!("{}/api/v3/calendar", self.address);
