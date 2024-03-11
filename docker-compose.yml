@@ -1,0 +1,10 @@
+services:
+  homers:
+    image: mcth/homers
+    ports:
+      - "8000:8000"
+    environment:
+      - HOMERS_HTTP_ADDRESS="0.0.0.0"
+      - HOMERS_HTTP_PORT="8000"
+      - HOMERS_SONARR_ADDRESS="http://sonarr:8989"
+      - HOMERS_SONARR_API_KEY="YOUR_SONARR_API_KEY"

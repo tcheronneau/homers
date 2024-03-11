@@ -19,7 +19,7 @@ Example: `config.toml`:
 ```toml
 [server]
 port=8000
-address=0.0.0.0
+address="0.0.0.0"
 [sonarr]
 address="http://localhost:8989"
 api_key=""

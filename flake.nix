@@ -39,7 +39,7 @@
             "${self.packages.${system}.homers}/bin/${name}"
           ];
           ExposedPorts = {
-            "8080/tcp" = { };
+            "8000/tcp" = { };
           };
         };
       };
