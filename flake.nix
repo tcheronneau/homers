@@ -16,8 +16,13 @@
 
         src = lib.cleanSource ./.;
 
-        cargoSha256 =
-          "sha256-uzrntCNLopr3EhvHy63HsKWJlzplUOYC01KEj7BPt0U=";
+
+        cargoLock = {
+          lockFile = ./Cargo.lock;
+          allowBuiltinFetchGit = true;
+        };
+        #cargoSha256 =
+        #  "sha256-uzrntCNLopr3EhvHy63HsKWJlzplUOYC01KEj7BPt0U=";
         buildInputs = [ 
           pkg-config
           openssl.dev

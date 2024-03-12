@@ -61,13 +61,11 @@ impl Tautulli {
             .expect("Failed to send request");
         let response = response.text().expect("Failed to get response text");
         debug!("{}", response);
-        println!("{}", response);
         let tautulli_response: tautulli::TautulliResponse = serde_json::from_str(&response).expect("Failed to parse JSON");
         Ok(tautulli_response.response.data)
     }
     pub fn get_libraries(&self) -> Vec<tautulli::Library>{
         let get_libraries = self.get("get_libraries").expect("Failed to get libraries");
-        println!("{:?}", get_libraries);
         let libraries: Vec<tautulli::Library> = get_libraries.into();
         libraries
     }

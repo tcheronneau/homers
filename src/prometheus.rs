@@ -44,6 +44,9 @@ struct TautulliSessionLabels {
     pub media_type: String,
     pub season_number: Option<String>,
     pub episode_number: Option<String>,
+    pub video_stream: String,
+    pub quality: String,
+    pub quality_profile: String,
 }
 #[derive(Clone, Hash, Eq, PartialEq, EncodeLabelSet, Debug)]
 struct TautulliLibraryLabels {
@@ -58,6 +61,7 @@ struct RadarrLabels {
     pub title: String,
     pub is_available: i8,
     pub monitored: i8,
+    pub missing_available: i8,
 }
 
 pub fn format_metrics(task_result: Vec<TaskResult>) -> anyhow::Result<String> {
@@ -113,6 +117,9 @@ pub fn format_tautulli_session_metrics(sessions: Vec<SessionSummary>, registry: 
             media_type: session.media_type.clone(),
             season_number: session.season_number.clone(),
             episode_number: session.episode_number.clone(),
+            quality: session.quality.clone(),
+            quality_profile: session.quality_profile.clone(),
+            video_stream: session.video_stream.clone(),
         };
         tautulli_session 
             .get_or_create(&labels)
@@ -154,6 +161,7 @@ pub fn format_radarr_metrics(movies: Vec<RadarrMovie>, registry: &mut Registry) 
             title: movie.title.clone(),
             is_available: movie.is_available as i8,
             monitored: movie.monitored as i8,
+            missing_available: movie.missing_available as i8,
         };
         radarr_movie 
             .get_or_create(&labels)

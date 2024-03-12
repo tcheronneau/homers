@@ -84,16 +84,16 @@ impl Radarr {
         let mut radarr_movies = Vec::new();
         for movie in movies {
             radarr_movies.push(RadarrMovie {
-                title: movie.title,
+                title: movie.title.clone(),
                 has_file: movie.has_file,
                 monitored: movie.monitored,
                 is_available: movie.is_available,
-                missing_available: self.set_missing_movies(movie),
+                missing_available: self.set_missing_movies(&movie),
             });
         }
         radarr_movies
     }
-    fn set_missing_movies(&self, movie: Movie) -> bool {
+    fn set_missing_movies(&self, movie: &Movie) -> bool {
         if !movie.has_file && movie.is_available {
             true
         } else {
