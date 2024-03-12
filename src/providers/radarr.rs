@@ -75,7 +75,6 @@ impl Radarr {
             .get(&url)
             .send()
             .expect("Failed to send request");
-        println!("{:?}", response);
         let movies: Vec<Movie> = response.json().expect("Failed to parse response");
         movies
     }

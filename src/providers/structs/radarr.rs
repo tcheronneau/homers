@@ -5,32 +5,52 @@ use serde::{Serialize, Deserialize};
 #[serde(rename_all = "camelCase")]
 pub struct Movie {
     pub title: String,
+    #[serde(rename = "originalTitle")]
     pub original_title: String,
+    #[serde(rename = "originalLanguage")]
     pub original_language: OriginalLanguage,
+    #[serde(rename = "alternateTitles")]
     pub alternate_titles: Vec<AlternateTitle>,
+    #[serde(rename = "secondaryYearSourceId")]
     pub secondary_year_source_id: i64,
+    #[serde(rename = "sortTitle")]
     pub sort_title: String,
+    #[serde(rename = "sizeOnDisk")]
     pub size_on_disk: i64,
     pub status: String,
     pub overview: String,
-    pub in_cinemas: String,
+    #[serde(rename = "inCinemas")]
+    #[serde(default)]
+    pub in_cinemas: Option<String>,
     pub images: Vec<Image>,
     pub website: String,
     pub year: i64,
+    #[serde(rename = "youTubeTrailerId")]
     pub you_tube_trailer_id: String,
     pub studio: String,
     pub path: String,
+    #[serde(rename = "qualityProfileId")]
     pub quality_profile_id: i64,
+    #[serde(rename = "hasFile")]
     pub has_file: bool,
     pub monitored: bool,
+    #[serde(rename = "minimumAvailability")]
     pub minimum_availability: String,
+    #[serde(rename = "isAvailable")]
     pub is_available: bool,
+    #[serde(rename = "folderName")]
     pub folder_name: String,
     pub runtime: i64,
+    #[serde(rename = "cleanTitle")]
     pub clean_title: String,
-    pub imdb_id: String,
+    #[serde(rename = "imdbId")]
+    #[serde(default)]
+    pub imdb_id: Option<String>,
+    #[serde(rename = "tmdbId")]
     pub tmdb_id: i64,
+    #[serde(rename = "titleSlug")]
     pub title_slug: String,
+    #[serde(rename = "rootFolderPath")]
     pub root_folder_path: String,
     pub certification: Option<String>,
     pub genres: Vec<String>,
