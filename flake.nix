@@ -6,7 +6,7 @@
   outputs = { self, nixpkgs, flake-utils }:
   let 
     name = "homers";
-    version = "0.1.0";
+    version = "0.2.0";
   in 
   flake-utils.lib.eachDefaultSystem (system:
     with nixpkgs.legacyPackages.${system}; {
@@ -17,7 +17,7 @@
         src = lib.cleanSource ./.;
 
         cargoSha256 =
-          "sha256-SNGYOUpycIegRvELolBk3PpbeMe/GfW2lFVksu8YLJo=";
+          "sha256-uzrntCNLopr3EhvHy63HsKWJlzplUOYC01KEj7BPt0U=";
         buildInputs = [ 
           pkg-config
           openssl.dev

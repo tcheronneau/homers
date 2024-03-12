@@ -34,6 +34,7 @@ pub struct RadarrMovie {
     pub monitored: bool,
     #[serde(rename = "isAvailable")]
     pub is_available: bool,
+    pub missing_available: bool,
 }
 impl std::fmt::Display for RadarrMovie {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -78,7 +79,7 @@ impl Radarr {
         let movies: Vec<Movie> = response.json().expect("Failed to parse response");
         movies
     }
-    fn get_radarr_movies(&self) -> Vec<RadarrMovie> {
+    pub fn get_radarr_movies(&self) -> Vec<RadarrMovie> {
         let movies = self.get_movies();
         let mut radarr_movies = Vec::new();
         for movie in movies {
@@ -87,18 +88,16 @@ impl Radarr {
                 has_file: movie.has_file,
                 monitored: movie.monitored,
                 is_available: movie.is_available,
+                missing_available: self.set_missing_movies(movie),
             });
         }
         radarr_movies
     }
-    pub fn get_missing_movies(&self) -> Vec<RadarrMovie> {
-        let mut missing_movies: Vec<RadarrMovie> = Vec::new();
-        self.get_radarr_movies().iter().for_each(|movie| {
-            if !movie.has_file && movie.monitored && movie.is_available {
-                debug!("Missing movie: {}", movie.title);
-                missing_movies.push(movie.clone());
-            }
-        });
-        missing_movies
+    fn set_missing_movies(&self, movie: Movie) -> bool {
+        if !movie.has_file && movie.is_available {
+            true
+        } else {
+            false
+        }
     }
 }

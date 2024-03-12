@@ -102,7 +102,7 @@ async fn serve_metrics(
                 },
                 Task::Radarr(radarr) => {
                     let radarr = Radarr::new(radarr.address, radarr.api_key);
-                    let result = radarr.get_missing_movies();
+                    let result = radarr.get_radarr_movies();
                     TaskResult::Radarr(result)
                 },
                 Task::Default => TaskResult::Default,
