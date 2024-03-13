@@ -31,6 +31,7 @@ impl Default for Config {
 pub enum Task {
     Sonarr(Sonarr),
     Radarr(Radarr),
+    TautulliSessionPercentage(Tautulli),
     TautulliSession(Tautulli),
     TautulliLibrary(Tautulli),
     Default,
@@ -65,6 +66,7 @@ pub fn get_tasks(config: Config) -> Vec<Task> {
         tasks.push(Task::Sonarr(sonarr));
     }
     if let Some(tautulli) = config.tautulli {
+        tasks.push(Task::TautulliSessionPercentage(tautulli.clone()));
         tasks.push(Task::TautulliSession(tautulli.clone()));
         tasks.push(Task::TautulliLibrary(tautulli));
     }

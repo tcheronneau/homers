@@ -20,6 +20,7 @@ pub enum Format {
 
 pub enum TaskResult {
     Sonarr(Vec<SonarrEpisode>),
+    TautulliSessionPercentage(Vec<SessionSummary>),
     TautulliSession(Vec<SessionSummary>),
     TautulliLibrary(Vec<Library>),
     Radarr(Vec<RadarrMovie>),
@@ -36,6 +37,19 @@ struct SonarrLabels {
     pub serie: String,
 }
 
+#[derive(Clone, Hash, Eq, PartialEq, EncodeLabelSet, Debug)]
+struct TautulliSessionPercentageLabels {
+    pub user: String,
+    pub title: String,
+    pub state: String,
+    pub media_type: String,
+    pub season_number: Option<String>,
+    pub episode_number: Option<String>,
+    pub video_stream: String,
+    pub quality: String,
+    pub quality_profile: String,
+    pub city: String,
+}
 #[derive(Clone, Hash, Eq, PartialEq, EncodeLabelSet, Debug)]
 struct TautulliSessionLabels {
     pub user: String,
@@ -71,6 +85,7 @@ pub fn format_metrics(task_result: Vec<TaskResult>) -> anyhow::Result<String> {
     for task_result in task_result {
         match task_result {
             TaskResult::Sonarr(episodes) => format_sonarr_metrics(episodes, &mut registry),
+            TaskResult::TautulliSessionPercentage(sessions) => format_tautulli_session_percentage_metrics(sessions, &mut registry),
             TaskResult::TautulliSession(sessions) => format_tautulli_session_metrics(sessions, &mut registry),
             TaskResult::TautulliLibrary(libraries) => format_tautulli_library_metrics(libraries, &mut registry),
             TaskResult::Radarr(movies) => format_radarr_metrics(movies, &mut registry),
@@ -102,6 +117,32 @@ pub fn format_sonarr_metrics(episodes: Vec<SonarrEpisode>, registry: &mut Regist
             .set(if episode.has_file { 1.0 } else { 0.0 });
     }
 }
+pub fn format_tautulli_session_percentage_metrics(sessions: Vec<SessionSummary>, registry: &mut Registry) { 
+    debug!("Formatting {sessions:?} as Prometheus");
+    let tautulli_session = Family::<TautulliSessionPercentageLabels, Gauge<f64, AtomicU64>>::default();
+    registry.register(
+        "tautulli_session_percentage",
+        format!("Tautulli session progress"),
+        tautulli_session.clone(),
+    );
+    for session in sessions {
+        let labels = TautulliSessionPercentageLabels {
+            user: session.user.clone(),
+            title: session.title.clone(),
+            state: session.state.clone(),
+            media_type: session.media_type.clone(),
+            season_number: session.season_number.clone(),
+            episode_number: session.episode_number.clone(),
+            quality: session.quality.clone(),
+            quality_profile: session.quality_profile.clone(),
+            video_stream: session.video_stream.clone(),
+            city: session.location.city.clone(),
+        };
+        tautulli_session 
+            .get_or_create(&labels)
+            .set(session.progress.parse::<f64>().unwrap());
+    }
+}
 pub fn format_tautulli_session_metrics(sessions: Vec<SessionSummary>, registry: &mut Registry) { 
     debug!("Formatting {sessions:?} as Prometheus");
     let tautulli_session = Family::<TautulliSessionLabels, Gauge<f64, AtomicU64>>::default();
@@ -125,7 +166,7 @@ pub fn format_tautulli_session_metrics(sessions: Vec<SessionSummary>, registry: 
         };
         tautulli_session 
             .get_or_create(&labels)
-            .set(session.progress.parse::<f64>().unwrap());
+            .set(1.0);
     }
 }
 pub fn format_tautulli_library_metrics(libraries: Vec<Library>, registry: &mut Registry) { 

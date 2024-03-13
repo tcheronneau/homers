@@ -90,6 +90,11 @@ async fn serve_metrics(
                     let result = sonarr.get_today_shows();
                     TaskResult::Sonarr(result)
                 },
+                Task::TautulliSessionPercentage(tautulli) => {
+                    let tautulli = Tautulli::new(tautulli.address, tautulli.api_key);
+                    let result = tautulli.get_session_summary();
+                    TaskResult::TautulliSessionPercentage(result)
+                },
                 Task::TautulliSession(tautulli) => {
                     let tautulli = Tautulli::new(tautulli.address, tautulli.api_key);
                     let result = tautulli.get_session_summary();
