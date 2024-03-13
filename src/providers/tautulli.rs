@@ -1,6 +1,8 @@
 use reqwest;
 use log::debug;
 use serde::{Serialize, Deserialize};
+use ipgeolocate::{Locator, Service};
+use tokio::runtime::Runtime;
 
 use crate::providers::structs::tautulli;
 
@@ -14,6 +16,14 @@ pub struct Tautulli {
     client: Option<reqwest::blocking::Client>,
 }
 
+#[derive(Debug, Deserialize, Clone, Serialize)]
+pub struct TautulliLocation {
+    pub city: String,
+    pub country: String,
+    pub ip_address: String,
+    pub latitude: String,
+    pub longitude: String,
+}
 
 #[derive(Debug)]
 pub struct SessionSummary {
@@ -27,6 +37,7 @@ pub struct SessionSummary {
     pub media_type: String,
     pub season_number: Option<String>,
     pub episode_number: Option<String>,
+    pub location: TautulliLocation,
 }
 impl std::fmt::Display for SessionSummary {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -69,10 +80,40 @@ impl Tautulli {
         let libraries: Vec<tautulli::Library> = get_libraries.into();
         libraries
     }
+    async fn get_ip_info(&self, ip: &str) -> TautulliLocation { 
+        let service = Service::IpApi;
+        match Locator::get(ip, service).await {
+            Ok(location) => {
+                TautulliLocation {
+                    city: location.city,
+                    country: location.country,
+                    ip_address: ip.to_string(), 
+                    latitude: location.latitude,
+                    longitude: location.longitude,
+                }
+            },
+            Err(_) => {
+                TautulliLocation {
+                    city: "Unknown".to_string(),
+                    country: "Unknown".to_string(),
+                    ip_address: ip.to_string(),
+                    latitude: "0.0".to_string(),
+                    longitude: "0.0".to_string(),
+                }
+            }
+        }
+
+        
+    }
     pub fn get_session_summary(&self) -> Vec<SessionSummary> {
         let get_activities = self.get("get_activity").expect("Failed to get activity");
         let activity: tautulli::Activity = get_activities.into();
         let session_summaries: Vec<SessionSummary> = activity.sessions.iter().map(|session| {
+            let location = Runtime::new()
+                .expect("Failed to create runtime")
+                .block_on(
+                    self.get_ip_info(&session.ip_address)
+                );
             if session.media_type == "episode" {
                 SessionSummary {
                     user: session.user.clone(),
@@ -85,6 +126,7 @@ impl Tautulli {
                     media_type: session.media_type.clone(),
                     season_number: Some(session.parent_media_index.clone()),
                     episode_number: Some(session.media_index.clone()),
+                    location: location,
                 }
             } else {
                 SessionSummary {
@@ -98,6 +140,7 @@ impl Tautulli {
                     media_type: session.media_type.clone(),
                     season_number: None,
                     episode_number: None,
+                    location: location,
                 }
             }
         }).collect();

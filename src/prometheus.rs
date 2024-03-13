@@ -47,6 +47,7 @@ struct TautulliSessionLabels {
     pub video_stream: String,
     pub quality: String,
     pub quality_profile: String,
+    pub city: String,
 }
 #[derive(Clone, Hash, Eq, PartialEq, EncodeLabelSet, Debug)]
 struct TautulliLibraryLabels {
@@ -120,6 +121,7 @@ pub fn format_tautulli_session_metrics(sessions: Vec<SessionSummary>, registry: 
             quality: session.quality.clone(),
             quality_profile: session.quality_profile.clone(),
             video_stream: session.video_stream.clone(),
+            city: session.location.city.clone(),
         };
         tautulli_session 
             .get_or_create(&labels)
