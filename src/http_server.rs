@@ -7,6 +7,7 @@ use tokio::task::JoinError;
 use log::{error, info,trace};
 use std::process::exit;
 use std::cmp::Ordering;
+use anyhow::{Result, Context};
 
 
 use crate::prometheus::{Format, TaskResult, format_metrics};
@@ -14,6 +15,7 @@ use crate::config::{Config, get_tasks, Task};
 use crate::providers::sonarr::Sonarr;
 use crate::providers::tautulli::Tautulli;
 use crate::providers::radarr::Radarr;
+use crate::providers::overseerr::Overseerr;
 
 #[derive(Responder, Debug, PartialEq, Eq)]
 #[response(content_type = "text/plain; charset=utf-8")]
@@ -109,6 +111,12 @@ async fn serve_metrics(
                     let radarr = Radarr::new(radarr.address, radarr.api_key);
                     let result = radarr.get_radarr_movies();
                     TaskResult::Radarr(result)
+                },
+                Task::Overseerr(overseerr) => {
+                    let overseerr = Overseerr::new(overseerr.address, overseerr.api_key);
+                    //let result = overseerr.get_requests();
+                    let result = Vec::new();
+                    TaskResult::Overseerr(result)
                 },
                 Task::Default => TaskResult::Default,
             }

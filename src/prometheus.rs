@@ -24,6 +24,7 @@ pub enum TaskResult {
     TautulliSession(Vec<SessionSummary>),
     TautulliLibrary(Vec<Library>),
     Radarr(Vec<RadarrMovie>),
+    Overseerr(Vec<String>),
     Default,
 }
 
@@ -62,6 +63,8 @@ struct TautulliSessionLabels {
     pub quality: String,
     pub quality_profile: String,
     pub city: String,
+    pub longitude: String,
+    pub latitude: String,
 }
 #[derive(Clone, Hash, Eq, PartialEq, EncodeLabelSet, Debug)]
 struct TautulliLibraryLabels {
@@ -89,6 +92,7 @@ pub fn format_metrics(task_result: Vec<TaskResult>) -> anyhow::Result<String> {
             TaskResult::TautulliSession(sessions) => format_tautulli_session_metrics(sessions, &mut registry),
             TaskResult::TautulliLibrary(libraries) => format_tautulli_library_metrics(libraries, &mut registry),
             TaskResult::Radarr(movies) => format_radarr_metrics(movies, &mut registry),
+            TaskResult::Overseerr(_) => todo!(),
             TaskResult::Default => return Err(anyhow::anyhow!("No task result")),
         }
     }
@@ -163,6 +167,8 @@ pub fn format_tautulli_session_metrics(sessions: Vec<SessionSummary>, registry: 
             quality_profile: session.quality_profile.clone(),
             video_stream: session.video_stream.clone(),
             city: session.location.city.clone(),
+            longitude: session.location.longitude.clone(),
+            latitude: session.location.latitude.clone(),
         };
         tautulli_session 
             .get_or_create(&labels)

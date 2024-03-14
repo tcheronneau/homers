@@ -8,12 +8,14 @@ use rocket::serde::Serialize;
 use crate::providers::tautulli::Tautulli;
 use crate::providers::sonarr::Sonarr;
 use crate::providers::radarr::Radarr;
+use crate::providers::overseerr::Overseerr;
 
 #[derive(Debug,Deserialize, Clone, Serialize)]
 pub struct Config {
     pub tautulli: Option<Tautulli>,
     pub sonarr: Option<Sonarr>,
     pub radarr: Option<Radarr>,
+    pub overseerr: Option<Overseerr>,
     pub http: rocket::Config,
 }
 impl Default for Config {
@@ -22,6 +24,7 @@ impl Default for Config {
             tautulli: None, 
             sonarr: None, 
             radarr: None,
+            overseerr: None,
             http: rocket::Config::default(),
         }
     }
@@ -31,6 +34,7 @@ impl Default for Config {
 pub enum Task {
     Sonarr(Sonarr),
     Radarr(Radarr),
+    Overseerr(Overseerr),
     TautulliSessionPercentage(Tautulli),
     TautulliSession(Tautulli),
     TautulliLibrary(Tautulli),
@@ -72,6 +76,9 @@ pub fn get_tasks(config: Config) -> Vec<Task> {
     }
     if let Some(radarr) = config.radarr {
         tasks.push(Task::Radarr(radarr));
+    }
+    if let Some(overseerr) = config.overseerr {
+        tasks.push(Task::Overseerr(overseerr));
     }
     tasks
 }
