@@ -3,8 +3,7 @@ use chrono::{Local, format::strftime::StrftimeItems, Duration};
 use serde::{Serialize, Deserialize};
 use lazy_static::lazy_static;
 use std::sync::{Mutex, Once,Arc};
-use log::debug;
-use anyhow::{Result, Context};
+use anyhow::Context;
 
 use crate::providers::structs::overseerr;
 
@@ -37,7 +36,7 @@ pub struct Overseerr {
     client: Option<reqwest::blocking::Client>,
 }
 impl Overseerr {
-    pub fn new(address: String, api_key: String) -> Result<Overseerr> {
+    pub fn new(address: String, api_key: String) -> anyhow::Result<Overseerr> {
         let mut headers = header::HeaderMap::new();
         initialize_api_key(api_key.clone());
         let mut header_api_key = header::HeaderValue::from_str(&*get_api_key()).unwrap();
@@ -54,7 +53,7 @@ impl Overseerr {
             client: Some(client),
         })
     }
-    pub fn get_requests(&self) -> Result<Vec<overseerr::Result>> {
+    pub fn get_requests(&self) -> anyhow::Result<Vec<overseerr::Result>> {
         let url = format!("{}/api/v1/request", self.address);
         let response = self.client
             .as_ref()

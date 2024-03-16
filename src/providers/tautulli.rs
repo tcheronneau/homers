@@ -50,17 +50,16 @@ impl std::fmt::Display for SessionSummary {
 }
 
 impl Tautulli {
-    pub fn new(address: String, api_key: String) -> Tautulli {
+    pub fn new(address: String, api_key: String) -> anyhow::Result<Tautulli> {
         let api_url = format!("{}/api/v2?apikey={}&cmd=", address, api_key);
         let client = reqwest::blocking::Client::builder()
-            .build()
-            .expect("Failed to create tautulli client");
-        Tautulli {
+            .build()?;
+        Ok(Tautulli {
             api_key,
             address,
             api_url: Some(api_url),
             client: Some(client),
-        }
+        })
     }
     pub fn get(&self, command: &str) -> anyhow::Result<tautulli::TautulliData> {
         let url = format!("{}{}", self.api_url.as_ref().unwrap(), command);
@@ -68,49 +67,48 @@ impl Tautulli {
             .as_ref()
             .expect("Failed to get client")
             .get(&url)
-            .send()
-            .expect("Failed to send request");
+            .send()?;
         let response = response.text().expect("Failed to get response text");
         debug!("{}", response);
         let tautulli_response: tautulli::TautulliResponse = serde_json::from_str(&response).expect("Failed to parse JSON");
         Ok(tautulli_response.response.data)
     }
-    pub fn get_libraries(&self) -> Vec<tautulli::Library>{
-        let get_libraries = self.get("get_libraries").expect("Failed to get libraries");
+    pub fn get_libraries(&self) -> anyhow::Result<Vec<tautulli::Library>>{
+        let get_libraries = self.get("get_libraries")?;
         let libraries: Vec<tautulli::Library> = get_libraries.into();
-        libraries
+        Ok(libraries)
     }
-    async fn get_ip_info(&self, ip: &str) -> TautulliLocation { 
+    async fn get_ip_info(&self, ip: &str) -> anyhow::Result<TautulliLocation> { 
         let service = Service::IpApi;
         match Locator::get(ip, service).await {
             Ok(location) => {
-                TautulliLocation {
+                Ok(TautulliLocation {
                     city: location.city,
                     country: location.country,
                     ip_address: ip.to_string(), 
                     latitude: location.latitude,
                     longitude: location.longitude,
-                }
+                })
             },
             Err(_) => {
-                TautulliLocation {
+                Ok(TautulliLocation {
                     city: "Unknown".to_string(),
                     country: "Unknown".to_string(),
                     ip_address: ip.to_string(),
                     latitude: "0.0".to_string(),
                     longitude: "0.0".to_string(),
-                }
+                })
             }
         }
 
         
     }
-    pub fn get_session_summary(&self) -> Vec<SessionSummary> {
-        let get_activities = self.get("get_activity").expect("Failed to get activity");
+    pub fn get_session_summary(&self) -> anyhow::Result<Vec<SessionSummary>> {
+        let get_activities = self.get("get_activity")?;
         let activity: tautulli::Activity = get_activities.into();
         let session_summaries: Vec<SessionSummary> = activity.sessions.iter().map(|session| {
             let location = Runtime::new()
-                .expect("Failed to create runtime")
+                .unwrap()
                 .block_on(
                     self.get_ip_info(&session.ip_address)
                 );
@@ -126,7 +124,7 @@ impl Tautulli {
                     media_type: session.media_type.clone(),
                     season_number: Some(session.parent_media_index.clone()),
                     episode_number: Some(session.media_index.clone()),
-                    location: location,
+                    location: Result::expect(location, "Failed to get location"),
                 }
             } else {
                 SessionSummary {
@@ -140,10 +138,10 @@ impl Tautulli {
                     media_type: session.media_type.clone(),
                     season_number: None,
                     episode_number: None,
-                    location: location,
+                    location: Result::expect(location, "Failed to get location"),
                 }
             }
         }).collect();
-        session_summaries
+        Ok(session_summaries)
     }
 }

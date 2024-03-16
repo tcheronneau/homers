@@ -64,21 +64,25 @@ pub fn read(config_file: PathBuf, log_level: Level) -> anyhow::Result<Config> {
     Ok(config)
 }
 
-pub fn get_tasks(config: Config) -> Vec<Task> {
+pub fn get_tasks(config: Config) -> anyhow::Result<Vec<Task>> {
     let mut tasks = Vec::new();
     if let Some(sonarr) = config.sonarr {
+        let sonarr = Sonarr::new(sonarr.address, sonarr.api_key)?;
         tasks.push(Task::Sonarr(sonarr));
     }
     if let Some(tautulli) = config.tautulli {
+        let tautulli = Tautulli::new(tautulli.address, tautulli.api_key)?;
         tasks.push(Task::TautulliSessionPercentage(tautulli.clone()));
         tasks.push(Task::TautulliSession(tautulli.clone()));
         tasks.push(Task::TautulliLibrary(tautulli));
     }
     if let Some(radarr) = config.radarr {
+        let radarr = Radarr::new(radarr.address, radarr.api_key)?;
         tasks.push(Task::Radarr(radarr));
     }
     if let Some(overseerr) = config.overseerr {
+        let overseerr = Overseerr::new(overseerr.address, overseerr.api_key)?;
         tasks.push(Task::Overseerr(overseerr));
     }
-    tasks
+    Ok(tasks)
 }

@@ -50,6 +50,7 @@ pub async fn configure_rocket(config: Config) -> Rocket<Build> {
     let config_clone = config.clone();
     let tasks = task::spawn_blocking(move || get_tasks(config_clone))
         .await
+        .unwrap_or_else(exit_if_handle_fatal)
         .unwrap_or_else(exit_if_handle_fatal);
     rocket::custom(config.http)
         .manage(config.sonarr)
@@ -88,34 +89,27 @@ async fn serve_metrics(
             );
             match task {
                 Task::Sonarr(sonarr) => {
-                    let sonarr = Sonarr::new(sonarr.address, sonarr.api_key);
                     let result = sonarr.get_today_shows();
                     TaskResult::Sonarr(result)
                 },
                 Task::TautulliSessionPercentage(tautulli) => {
-                    let tautulli = Tautulli::new(tautulli.address, tautulli.api_key);
                     let result = tautulli.get_session_summary();
                     TaskResult::TautulliSessionPercentage(result)
                 },
                 Task::TautulliSession(tautulli) => {
-                    let tautulli = Tautulli::new(tautulli.address, tautulli.api_key);
                     let result = tautulli.get_session_summary();
                     TaskResult::TautulliSession(result)
                 },
                 Task::TautulliLibrary(tautulli) => {
-                    let tautulli = Tautulli::new(tautulli.address, tautulli.api_key);
                     let result = tautulli.get_libraries();
                     TaskResult::TautulliLibrary(result)
                 },
                 Task::Radarr(radarr) => {
-                    let radarr = Radarr::new(radarr.address, radarr.api_key);
                     let result = radarr.get_radarr_movies();
                     TaskResult::Radarr(result)
                 },
                 Task::Overseerr(overseerr) => {
-                    let overseerr = Overseerr::new(overseerr.address, overseerr.api_key);
-                    //let result = overseerr.get_requests();
-                    let result = Vec::new();
+                    let result = overseerr.get_requests();
                     TaskResult::Overseerr(result)
                 },
                 Task::Default => TaskResult::Default,
@@ -129,7 +123,7 @@ async fn serve_metrics(
             MetricsResponse::new(
                 Status::InternalServerError,
                 format,
-                "Error while fetching vault data. Check the logs".into(),
+                "Error while fetching providers data. Check the logs".into(),
             )
         },
         |metrics| MetricsResponse::new(Status::Ok, format, metrics),

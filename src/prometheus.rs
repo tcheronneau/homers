@@ -5,11 +5,13 @@ use prometheus_client::metrics::family::Family;
 use prometheus_client::metrics::gauge::Gauge;
 use prometheus_client::registry::Registry;
 use std::sync::atomic::AtomicU64;
+use anyhow::Result;
 
 use crate::providers::sonarr::SonarrEpisode;
 use crate::providers::tautulli::SessionSummary;
 use crate::providers::radarr::RadarrMovie;
 use crate::providers::structs::tautulli::Library;
+use crate::providers::structs;
 
 
 #[derive(PartialEq, Debug, Eq, Copy, Clone)]
@@ -18,13 +20,14 @@ pub enum Format {
     OpenMetrics,
 }
 
+
 pub enum TaskResult {
-    Sonarr(Vec<SonarrEpisode>),
-    TautulliSessionPercentage(Vec<SessionSummary>),
-    TautulliSession(Vec<SessionSummary>),
-    TautulliLibrary(Vec<Library>),
-    Radarr(Vec<RadarrMovie>),
-    Overseerr(Vec<String>),
+    Sonarr(Result<Vec<SonarrEpisode>>),
+    TautulliSessionPercentage(Result<Vec<SessionSummary>>),
+    TautulliSession(Result<Vec<SessionSummary>>),
+    TautulliLibrary(Result<Vec<Library>>),
+    Radarr(Result<Vec<RadarrMovie>>),
+    Overseerr(Result<Vec<structs::overseerr::Result>>),
     Default,
 }
 
@@ -81,18 +84,24 @@ struct RadarrLabels {
     pub monitored: i8,
     pub missing_available: i8,
 }
+#[derive(Clone, Hash, Eq, PartialEq, EncodeLabelSet, Debug)]
+struct OverseerrLabels {
+    pub media_type: String,
+    pub requested_by: String,
+    pub status: i8,
+}
 
 pub fn format_metrics(task_result: Vec<TaskResult>) -> anyhow::Result<String> {
     let mut buffer = String::new();
     let mut registry = Registry::with_prefix("homers");
     for task_result in task_result {
         match task_result {
-            TaskResult::Sonarr(episodes) => format_sonarr_metrics(episodes, &mut registry),
-            TaskResult::TautulliSessionPercentage(sessions) => format_tautulli_session_percentage_metrics(sessions, &mut registry),
-            TaskResult::TautulliSession(sessions) => format_tautulli_session_metrics(sessions, &mut registry),
-            TaskResult::TautulliLibrary(libraries) => format_tautulli_library_metrics(libraries, &mut registry),
-            TaskResult::Radarr(movies) => format_radarr_metrics(movies, &mut registry),
-            TaskResult::Overseerr(_) => todo!(),
+            TaskResult::Sonarr(episodes) => format_sonarr_metrics(episodes?, &mut registry),
+            TaskResult::TautulliSessionPercentage(sessions) => format_tautulli_session_percentage_metrics(sessions?, &mut registry),
+            TaskResult::TautulliSession(sessions) => format_tautulli_session_metrics(sessions?, &mut registry),
+            TaskResult::TautulliLibrary(libraries) => format_tautulli_library_metrics(libraries?, &mut registry),
+            TaskResult::Radarr(movies) => format_radarr_metrics(movies?, &mut registry),
+            TaskResult::Overseerr(overseerr) => format_overseerr_metrics(overseerr?, &mut registry),
             TaskResult::Default => return Err(anyhow::anyhow!("No task result")),
         }
     }
@@ -215,5 +224,24 @@ pub fn format_radarr_metrics(movies: Vec<RadarrMovie>, registry: &mut Registry) 
         radarr_movie 
             .get_or_create(&labels)
             .set(if movie.has_file { 1.0 } else { 0.0 });
+    }
+}
+pub fn format_overseerr_metrics(requests: Vec<structs::overseerr::Result>, registry: &mut Registry) {
+    debug!("Formatting {requests:?} as Prometheus");
+    let overseerr_request = Family::<OverseerrLabels, Gauge<f64, AtomicU64>>::default();
+    registry.register(
+        "overseerr_requests",
+        format!("overseerr requests status"),
+        overseerr_request.clone(),
+    );
+    for request in requests {
+        let labels = OverseerrLabels {
+            media_type: request.type_field.clone(),
+            requested_by: request.requested_by.username.to_string(),
+            status: request.status as i8,
+        };
+        overseerr_request
+            .get_or_create(&labels)
+            .set(1.0);
     }
 }

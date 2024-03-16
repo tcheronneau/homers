@@ -51,7 +51,7 @@ pub struct Radarr {
     client: Option<reqwest::blocking::Client>,
 }
 impl Radarr {
-    pub fn new(address: String, api_key: String) -> Radarr {
+    pub fn new(address: String, api_key: String) -> anyhow::Result<Radarr> {
         let mut headers = header::HeaderMap::new();
         initialize_api_key(api_key.clone());
         let mut header_api_key = header::HeaderValue::from_str(&*get_api_key()).unwrap();
@@ -60,27 +60,25 @@ impl Radarr {
         headers.insert("Accept", header::HeaderValue::from_static("application/json"));
         let client = reqwest::blocking::Client::builder()
             .default_headers(headers)
-            .build()
-            .expect("Failed to create sonarr client");
-        Radarr {
+            .build()?;
+        Ok(Radarr {
             address: format!("{}/api/v3", address),
             api_key,
             client: Some(client),
-        }
+        })
     }
-    fn get_movies(&self) -> Vec<Movie> {
+    fn get_movies(&self) -> anyhow::Result<Vec<Movie>> {
         let url = format!("{}/movie", self.address);
         let response = self.client
             .as_ref()
             .expect("Failed to create radarr client")
             .get(&url)
-            .send()
-            .expect("Failed to send request");
-        let movies: Vec<Movie> = response.json().expect("Failed to parse response");
-        movies
+            .send()?;
+        let movies: Vec<Movie> = response.json()?;
+        Ok(movies)
     }
-    pub fn get_radarr_movies(&self) -> Vec<RadarrMovie> {
-        let movies = self.get_movies();
+    pub fn get_radarr_movies(&self) -> anyhow::Result<Vec<RadarrMovie>> {
+        let movies = self.get_movies()?;
         let mut radarr_movies = Vec::new();
         for movie in movies {
             radarr_movies.push(RadarrMovie {
@@ -91,7 +89,7 @@ impl Radarr {
                 missing_available: self.set_missing_movies(&movie),
             });
         }
-        radarr_movies
+        Ok(radarr_movies)
     }
     fn set_missing_movies(&self, movie: &Movie) -> bool {
         if !movie.has_file && movie.is_available {

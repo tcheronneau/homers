@@ -55,7 +55,7 @@ impl std::fmt::Display for SonarrEpisode {
 }
 
 impl Sonarr {
-    pub fn new(address: String, api_key: String) -> Sonarr{
+    pub fn new(address: String, api_key: String) -> anyhow::Result<Sonarr>{
         let mut headers = header::HeaderMap::new();
         initialize_api_key(api_key.clone());
         let mut header_api_key = header::HeaderValue::from_str(&*get_api_key()).unwrap();
@@ -63,13 +63,12 @@ impl Sonarr {
         headers.insert("X-Api-Key", header_api_key);
         let client = reqwest::blocking::Client::builder()
             .default_headers(headers)
-            .build()
-            .expect("Failed to create sonarr client");
-        Sonarr {
+            .build()?;
+        Ok(Sonarr {
             address,
             api_key,
             client: Some(client),
-        }
+        })
     }
     fn get_calendars(&self, start_date: String, end_data: String) -> Vec<sonarr::Calendar> {
         let url = format!("{}/api/v3/calendar", self.address);
@@ -81,7 +80,7 @@ impl Sonarr {
             .expect("Failed to get sonarr calendar");
         response.json().unwrap()
     }
-    fn get_today_calendars(&self) -> Vec<sonarr::Calendar> {
+    fn get_today_calendars(&self) -> anyhow::Result<Vec<sonarr::Calendar>> {
         let url = format!("{}/api/v3/calendar", self.address);
         let local_datetime = Local::now();
 
@@ -102,15 +101,17 @@ impl Sonarr {
             .get(url)
             .query(&params)
             .send()
-            .expect("Failed to get sonarr calendar");
-        response.json().unwrap()
+            .context("Failed to get sonarr calendar")?;
+        let calendars = response.json::<Vec<sonarr::Calendar>>()
+            .context("Failed to parse sonarr calendar")?;
+        Ok(calendars)
     }
 
-    pub fn get_today_shows(&self) -> Vec<SonarrEpisode> {
-        let calendars = self.get_today_calendars();
+    pub fn get_today_shows(&self) -> anyhow::Result<Vec<SonarrEpisode>> {
+        let calendars = self.get_today_calendars()?;
         calendars.iter().map(|calendar| {
             debug!("{:?}", calendar);
-            SonarrEpisode {
+            Ok(SonarrEpisode {
                 sxe: format!("S{:02}E{:02}", calendar.season_number, calendar.episode_number),
                 season_number: calendar.season_number,
                 episode_number: calendar.episode_number,
@@ -118,7 +119,7 @@ impl Sonarr {
                 serie: calendar.series.title.clone(),
                 air_date: calendar.air_date.clone(),
                 has_file: calendar.has_file,
-            }
+            })
         }).collect()
     }
 
