@@ -11,7 +11,7 @@ use crate::providers::sonarr::SonarrEpisode;
 use crate::providers::tautulli::SessionSummary;
 use crate::providers::radarr::RadarrMovie;
 use crate::providers::structs::tautulli::Library;
-use crate::providers::structs;
+use crate::providers::overseerr::OverseerrRequest;
 
 
 #[derive(PartialEq, Debug, Eq, Copy, Clone)]
@@ -27,7 +27,7 @@ pub enum TaskResult {
     TautulliSession(Result<Vec<SessionSummary>>),
     TautulliLibrary(Result<Vec<Library>>),
     Radarr(Result<Vec<RadarrMovie>>),
-    Overseerr(Result<Vec<structs::overseerr::Result>>),
+    Overseerr(Result<Vec<OverseerrRequest>>),
     Default,
 }
 
@@ -88,7 +88,8 @@ struct RadarrLabels {
 struct OverseerrLabels {
     pub media_type: String,
     pub requested_by: String,
-    pub status: i8,
+    pub request_status: String,
+    pub media_title: String,
 }
 
 pub fn format_metrics(task_result: Vec<TaskResult>) -> anyhow::Result<String> {
@@ -226,7 +227,7 @@ pub fn format_radarr_metrics(movies: Vec<RadarrMovie>, registry: &mut Registry) 
             .set(if movie.has_file { 1.0 } else { 0.0 });
     }
 }
-pub fn format_overseerr_metrics(requests: Vec<structs::overseerr::Result>, registry: &mut Registry) {
+pub fn format_overseerr_metrics(requests: Vec<OverseerrRequest>, registry: &mut Registry) {
     debug!("Formatting {requests:?} as Prometheus");
     let overseerr_request = Family::<OverseerrLabels, Gauge<f64, AtomicU64>>::default();
     registry.register(
@@ -236,12 +237,13 @@ pub fn format_overseerr_metrics(requests: Vec<structs::overseerr::Result>, regis
     );
     for request in requests {
         let labels = OverseerrLabels {
-            media_type: request.type_field.clone(),
-            requested_by: request.requested_by.username.to_string(),
-            status: request.status as i8,
+            media_type: request.media_type.clone(),
+            requested_by: request.requested_by.to_string(),
+            request_status: request.status.to_string(),
+            media_title: request.media_title,
         };
         overseerr_request
             .get_or_create(&labels)
-            .set(1.0);
+            .set(request.media_status as f64);
     }
 }

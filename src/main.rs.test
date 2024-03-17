@@ -82,7 +82,7 @@ fn main() -> Result<()>{
     let config = config::read(args.config.clone(), log_level).expect("Config successfully read");
     let overseerr_cfg = config.overseerr.clone().expect("Radarr config not found");
     let overseerr = Overseerr::new(overseerr_cfg.address, overseerr_cfg.api_key)?;
-    let requests = overseerr.get_requests()?;
+    let requests = overseerr.get_overseerr_requests()?;
     for item in requests {
         println!("{:?}", item);
     }

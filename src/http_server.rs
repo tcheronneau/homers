@@ -12,10 +12,10 @@ use anyhow::{Result, Context};
 
 use crate::prometheus::{Format, TaskResult, format_metrics};
 use crate::config::{Config, get_tasks, Task};
-use crate::providers::sonarr::Sonarr;
-use crate::providers::tautulli::Tautulli;
-use crate::providers::radarr::Radarr;
-use crate::providers::overseerr::Overseerr;
+//use crate::providers::sonarr::Sonarr;
+//use crate::providers::tautulli::Tautulli;
+//use crate::providers::radarr::Radarr;
+//use crate::providers::overseerr::Overseerr;
 
 #[derive(Responder, Debug, PartialEq, Eq)]
 #[response(content_type = "text/plain; charset=utf-8")]
@@ -109,7 +109,7 @@ async fn serve_metrics(
                     TaskResult::Radarr(result)
                 },
                 Task::Overseerr(overseerr) => {
-                    let result = overseerr.get_requests();
+                    let result = overseerr.get_overseerr_requests();
                     TaskResult::Overseerr(result)
                 },
                 Task::Default => TaskResult::Default,
@@ -119,7 +119,7 @@ async fn serve_metrics(
 
     wait_for_metrics(format,join_set).await.map_or_else(
         |e| {
-            error!("General error while fetching helm release data: {e}");
+            error!("General error while fetching providers data: {e}");
             MetricsResponse::new(
                 Status::InternalServerError,
                 format,

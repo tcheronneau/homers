@@ -3,8 +3,8 @@ use serde_json::Value;
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct OverseerrRequest {
-    pub page_info: PageInfo,
+pub struct Request {
+    pub page_info: Value,
     pub results: Vec<Result>,
 }
 
@@ -16,6 +16,7 @@ pub struct PageInfo {
     pub results: i64,
     pub page: i64,
 }
+
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -39,6 +40,25 @@ pub struct Result {
     pub requested_by: RequestedBy,
     pub season_count: i64,
 }
+pub enum MediaStatus {
+    UNKNOWN = 1,
+    PENDING = 2,
+    PROCESSING = 3,
+    PARTIALLY_AVAILABLE = 4,
+    AVAILABLE = 5,
+}
+impl MediaStatus {
+    pub fn as_str(&self) -> &str {
+        match *self {
+            MediaStatus::UNKNOWN => "Unknown",
+            MediaStatus::PENDING => "Pending",
+            MediaStatus::PROCESSING => "Processing",
+            MediaStatus::PARTIALLY_AVAILABLE => "Partially Available",
+            MediaStatus::AVAILABLE => "Available",
+        }
+    }
+}
+
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -65,6 +85,18 @@ pub struct Media {
     pub rating_key: Value,
     pub rating_key4k: Value,
     pub service_url: String,
+}
+impl Media {
+    pub fn get_status(&self) -> MediaStatus {
+        match self.status {
+            1 => MediaStatus::UNKNOWN,
+            2 => MediaStatus::PENDING,
+            3 => MediaStatus::PROCESSING,
+            4 => MediaStatus::PARTIALLY_AVAILABLE,
+            5 => MediaStatus::AVAILABLE,
+            _ => MediaStatus::UNKNOWN,
+        }
+    }
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -105,8 +137,10 @@ pub struct RequestedBy {
     pub permissions: i64,
     pub id: i64,
     pub email: String,
-    pub plex_username: String,
-    pub username: Value,
+    #[serde(default)]
+    pub plex_username: Option<String>,
+    #[serde(default)]
+    pub username: Option<String>,
     pub recovery_link_expiration_date: Value,
     pub user_type: i64,
     pub plex_id: i64,
@@ -119,4 +153,18 @@ pub struct RequestedBy {
     pub updated_at: String,
     pub request_count: i64,
     pub display_name: String,
+}
+
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Movie {
+    pub original_title: Option<String>,
+}
+
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Tv {
+    pub name: String,
 }

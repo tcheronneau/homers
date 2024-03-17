@@ -28,6 +28,16 @@ fn get_api_key() -> Arc<String> {
 }
 
 #[derive(Debug, Deserialize, Clone, Serialize)]
+pub struct OverseerrRequest {
+    pub media_type: String,
+    pub media_id: i64,
+    pub status: i64,
+    pub requested_by: String,
+    pub media_status: i64,
+    pub media_title: String,
+}
+
+#[derive(Debug, Deserialize, Clone, Serialize)]
 pub struct Overseerr {
     pub address: String,
     #[serde(rename = "apikey")]
@@ -53,7 +63,7 @@ impl Overseerr {
             client: Some(client),
         })
     }
-    pub fn get_requests(&self) -> anyhow::Result<Vec<overseerr::Result>> {
+    fn get_requests(&self) -> anyhow::Result<Vec<overseerr::Result>> {
         let url = format!("{}/api/v1/request", self.address);
         let response = self.client
             .as_ref()
@@ -63,7 +73,57 @@ impl Overseerr {
             .query(&[("take", "20")])
             .send()
             .context("Failed to get requests")?;
-        let requests = response.json::<overseerr::OverseerrRequest>().context("Failed to parse get_requests")?;
+        let requests = response.json::<overseerr::Request>().context("Failed to parse get_requests")?;
         Ok(requests.results)
+        //Ok(Vec::new())
+    }
+    pub fn get_overseerr_requests(&self) -> anyhow::Result<Vec<OverseerrRequest>> {
+        let requests = self.get_requests()?;
+        let mut overseerr_requests = Vec::new();
+        for request in requests {
+            let media_title = self.get_media_title(&request.media.media_type, request.media.tmdb_id)?;
+            let overseerr_request = OverseerrRequest {
+                media_type: request.media.media_type.clone(),
+                media_id: request.media.id,
+                status: request.status,
+                requested_by: self.get_username(request.clone())?, 
+                media_status: request.media.status,
+                media_title,
+            };
+            overseerr_requests.push(overseerr_request);
+        }
+        Ok(overseerr_requests)
+    }
+    fn get_username(&self, request: overseerr::Result) -> anyhow::Result<String> {
+        match request.requested_by.username {
+            Some(username) => Ok(username),
+            None => match request.requested_by.plex_username {
+                Some(username) => Ok(username),
+                None => Ok("Unknown".to_string()),
+            }
+        }
+    }
+    fn get_media_title(&self, media_type: &str, media_id: i64) -> anyhow::Result<String> {
+        let url = format!("{}/api/v1/{}/{}", self.address, media_type, media_id);
+        let response = self.client
+            .as_ref()
+            .context("Failed to get client")?
+            .get(&url)
+            .send()
+            .context("Failed to get media title")?;
+        match media_type {
+            "movie" => {
+                let movie: overseerr::Movie = response.json().context("Failed to parse movie")?;
+                match movie.original_title {
+                    Some(title) => Ok(title),
+                    None => Ok("Unknown".to_string()),
+                }
+            }
+            "tv" => {
+                let show: overseerr::Tv = response.json().context("Failed to parse show")?;
+                Ok(show.name)
+            }
+            _ => Ok("Unknown".to_string()),
+        }
     }
 }
