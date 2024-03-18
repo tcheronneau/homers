@@ -22,7 +22,8 @@ pub enum Format {
 
 
 pub enum TaskResult {
-    Sonarr(Result<Vec<SonarrEpisode>>),
+    SonarrToday(Result<Vec<SonarrEpisode>>),
+    SonarrMissing(Result<Vec<SonarrEpisode>>),
     TautulliSessionPercentage(Result<Vec<SessionSummary>>),
     TautulliSession(Result<Vec<SessionSummary>>),
     TautulliLibrary(Result<Vec<Library>>),
@@ -97,7 +98,8 @@ pub fn format_metrics(task_result: Vec<TaskResult>) -> anyhow::Result<String> {
     let mut registry = Registry::with_prefix("homers");
     for task_result in task_result {
         match task_result {
-            TaskResult::Sonarr(episodes) => format_sonarr_metrics(episodes?, &mut registry),
+            TaskResult::SonarrToday(episodes) => format_sonarr_today_metrics(episodes?, &mut registry),
+            TaskResult::SonarrMissing(episodes) => format_sonarr_missing_metrics(episodes?, &mut registry),
             TaskResult::TautulliSessionPercentage(sessions) => format_tautulli_session_percentage_metrics(sessions?, &mut registry),
             TaskResult::TautulliSession(sessions) => format_tautulli_session_metrics(sessions?, &mut registry),
             TaskResult::TautulliLibrary(libraries) => format_tautulli_library_metrics(libraries?, &mut registry),
@@ -110,12 +112,33 @@ pub fn format_metrics(task_result: Vec<TaskResult>) -> anyhow::Result<String> {
     Ok(buffer)
 }
 
-pub fn format_sonarr_metrics(episodes: Vec<SonarrEpisode>, registry: &mut Registry) {
+pub fn format_sonarr_today_metrics(episodes: Vec<SonarrEpisode>, registry: &mut Registry) {
     debug!("Formatting {episodes:?} as Prometheus");
     let sonarr_episode = Family::<SonarrLabels, Gauge<f64, AtomicU64>>::default();
     registry.register(
-        "sonarr_episode",
-        format!("Sonarr episode status"),
+        "sonarr_today_episode",
+        format!("Sonarr today episode status"),
+        sonarr_episode.clone(),
+    );
+    for episode in episodes {
+        let labels = SonarrLabels {
+            sxe: episode.sxe.clone(),
+            season_number: episode.season_number,
+            episode_number: episode.episode_number,
+            title: episode.title.clone(),
+            serie: episode.serie.clone(),
+        };
+        sonarr_episode 
+            .get_or_create(&labels)
+            .set(if episode.has_file { 1.0 } else { 0.0 });
+    }
+}
+pub fn format_sonarr_missing_metrics(episodes: Vec<SonarrEpisode>, registry: &mut Registry) {
+    debug!("Formatting {episodes:?} as Prometheus");
+    let sonarr_episode = Family::<SonarrLabels, Gauge<f64, AtomicU64>>::default();
+    registry.register(
+        "sonarr_missing_episode",
+        format!("Sonarr missing episode status"),
         sonarr_episode.clone(),
     );
     for episode in episodes {

@@ -32,7 +32,8 @@ impl Default for Config {
 
 #[derive(Debug, Deserialize, Clone)]
 pub enum Task {
-    Sonarr(Sonarr),
+    SonarrToday(Sonarr),
+    SonarrMissing(Sonarr),
     Radarr(Radarr),
     Overseerr(Overseerr),
     TautulliSessionPercentage(Tautulli),
@@ -68,7 +69,8 @@ pub fn get_tasks(config: Config) -> anyhow::Result<Vec<Task>> {
     let mut tasks = Vec::new();
     if let Some(sonarr) = config.sonarr {
         let sonarr = Sonarr::new(sonarr.address, sonarr.api_key)?;
-        tasks.push(Task::Sonarr(sonarr));
+        tasks.push(Task::SonarrToday(sonarr.clone()));
+        tasks.push(Task::SonarrMissing(sonarr));
     }
     if let Some(tautulli) = config.tautulli {
         let tautulli = Tautulli::new(tautulli.address, tautulli.api_key)?;

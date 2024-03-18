@@ -70,15 +70,26 @@ impl Sonarr {
             client: Some(client),
         })
     }
-    fn get_calendars(&self, start_date: String, end_data: String) -> Vec<sonarr::Calendar> {
+    fn get_last_seven_days_calendars(&self) -> anyhow::Result<Vec<sonarr::Calendar>> {
         let url = format!("{}/api/v3/calendar", self.address);
+        let local_datetime = Local::now();
+        let date_start = local_datetime.date_naive();
+        let date_end = date_start + Duration::days(1);
+        let format = StrftimeItems::new("%Y-%m-%d");
+        let start_date= date_start.format_with_items(format.clone()).to_string();
+        let end_date = date_end.format_with_items(format).to_string();
+
+        let params = [("start", &start_date), ("end", &end_date), ("includeSeries", &true.to_string())];
         let response = self.client
             .as_ref()
             .expect("Sonarr client not initialized")
             .get(url)
+            .query(&params)
             .send()
             .expect("Failed to get sonarr calendar");
-        response.json().unwrap()
+        let calendars = response.json::<Vec<sonarr::Calendar>>()
+            .context("Failed to parse sonarr calendar")?;
+        Ok(calendars)
     }
     fn get_today_calendars(&self) -> anyhow::Result<Vec<sonarr::Calendar>> {
         let url = format!("{}/api/v3/calendar", self.address);
@@ -120,6 +131,25 @@ impl Sonarr {
                 air_date: calendar.air_date.clone(),
                 has_file: calendar.has_file,
             })
+        }).collect()
+    }
+
+    pub fn get_last_week_missing_shows(&self) -> anyhow::Result<Vec<SonarrEpisode>> {
+        let calendars = self.get_last_seven_days_calendars()?;
+        calendars.iter().filter_map(|calendar| {
+            if !calendar.has_file {
+                Some(Ok(SonarrEpisode {
+                    sxe: format!("S{:02}E{:02}", calendar.season_number, calendar.episode_number),
+                    season_number: calendar.season_number,
+                    episode_number: calendar.episode_number,
+                    title: calendar.title.clone(),
+                    serie: calendar.series.title.clone(),
+                    air_date: calendar.air_date.clone(),
+                    has_file: calendar.has_file,
+                }))
+            } else {
+                None
+            }
         }).collect()
     }
 

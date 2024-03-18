@@ -12,10 +12,6 @@ use anyhow::{Result, Context};
 
 use crate::prometheus::{Format, TaskResult, format_metrics};
 use crate::config::{Config, get_tasks, Task};
-//use crate::providers::sonarr::Sonarr;
-//use crate::providers::tautulli::Tautulli;
-//use crate::providers::radarr::Radarr;
-//use crate::providers::overseerr::Overseerr;
 
 #[derive(Responder, Debug, PartialEq, Eq)]
 #[response(content_type = "text/plain; charset=utf-8")]
@@ -88,9 +84,13 @@ async fn serve_metrics(
                 &task,
             );
             match task {
-                Task::Sonarr(sonarr) => {
+                Task::SonarrToday(sonarr) => {
                     let result = sonarr.get_today_shows();
-                    TaskResult::Sonarr(result)
+                    TaskResult::SonarrToday(result)
+                },
+                Task::SonarrMissing(sonarr) => {
+                    let result = sonarr.get_last_week_missing_shows();
+                    TaskResult::SonarrMissing(result)
                 },
                 Task::TautulliSessionPercentage(tautulli) => {
                     let result = tautulli.get_session_summary();
