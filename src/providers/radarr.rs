@@ -2,7 +2,6 @@ use reqwest::header;
 use serde::{Serialize, Deserialize};
 use lazy_static::lazy_static;
 use std::sync::{Mutex, Once,Arc};
-use log::debug;
 
 use crate::providers::structs::radarr::Movie;
 

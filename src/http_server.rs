@@ -1,13 +1,11 @@
 use rocket::{get, routes, Build, Responder, Rocket, State};
-use rocket::http::{Accept, ContentType, MediaType, QMediaType, Status};
+use rocket::http::{Accept, ContentType, Status};
 use rocket::tokio::task;
 use rocket::tokio::task::JoinSet;
-use once_cell::sync::Lazy;
 use tokio::task::JoinError;
-use log::{error, info,trace};
+use log::{error, info};
 use std::process::exit;
-use std::cmp::Ordering;
-use anyhow::{Result, Context};
+use anyhow::Result;
 
 
 use crate::prometheus::{Format, TaskResult, format_metrics};
@@ -172,61 +170,3 @@ where
     exit(1)
 }
 
-fn sort_media_types_by_priority(accept: &Accept) -> Vec<&QMediaType> {
-    let mut vec: Vec<&QMediaType> = accept.iter().collect();
-    vec.sort_by(|&left, &right| {
-        right
-            .weight()
-            .map_or(Ordering::Greater, |right_weight| {
-                // Absence of weight parameter means most important
-                left.weight().map_or(Ordering::Less, |left_weight| {
-                    // The higher the weight, the higher the priority
-                    right_weight
-                        .partial_cmp(&left_weight)
-                        .unwrap_or(Ordering::Equal)
-                })
-            })
-            // The more specific, the higher the priority
-            .then_with(|| right.specificity().cmp(&left.specificity()))
-            // The more parameters, the higher the priority
-            .then_with(|| right.params().count().cmp(&left.params().count()))
-    });
-
-    trace!("Sorted list of accepted media types: {:#?}", vec);
-
-    vec
-}
-
-static OPENMETRICS_CONTENT_TYPE: Lazy<ContentType> = Lazy::new(|| {
-    ContentType::new("application", "openmetrics-text")
-        .with_params(get_content_type_params("1.0.0"))
-});
-
-static TEXT_PLAIN_CONTENT_TYPE: Lazy<ContentType> =
-    Lazy::new(|| ContentType::new("text", "plain").with_params(get_content_type_params("0.0.4")));
-
-static MEDIA_TYPE_FORMATS: Lazy<Vec<(&MediaType, Format)>> = Lazy::new(|| {
-    vec![
-        (OPENMETRICS_CONTENT_TYPE.media_type(), Format::OpenMetrics),
-        (TEXT_PLAIN_CONTENT_TYPE.media_type(), Format::Prometheus),
-    ]
-});
-
-fn get_metrics_format(accept: &Accept) -> Format {
-    let media_types_by_priority = sort_media_types_by_priority(accept);
-
-    media_types_by_priority
-        .iter()
-        .find_map(|&given_media_type| {
-            MEDIA_TYPE_FORMATS
-                .iter()
-                .find_map(|(expected_media_type, format)| {
-                    media_type_matches(expected_media_type, given_media_type.media_type())
-                        .then_some(*format)
-                })
-        })
-        .unwrap_or(Format::Prometheus)
-}
-fn media_type_matches(left: &MediaType, right: &MediaType) -> bool {
-    left == right || (left.top() == right.top() && (left.sub() == "*" || right.sub() == "*"))
-}

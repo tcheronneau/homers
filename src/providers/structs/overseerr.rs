@@ -40,24 +40,6 @@ pub struct Result {
     pub requested_by: RequestedBy,
     pub season_count: i64,
 }
-pub enum MediaStatus {
-    UNKNOWN = 1,
-    PENDING = 2,
-    PROCESSING = 3,
-    PARTIALLY_AVAILABLE = 4,
-    AVAILABLE = 5,
-}
-impl MediaStatus {
-    pub fn as_str(&self) -> &str {
-        match *self {
-            MediaStatus::UNKNOWN => "Unknown",
-            MediaStatus::PENDING => "Pending",
-            MediaStatus::PROCESSING => "Processing",
-            MediaStatus::PARTIALLY_AVAILABLE => "Partially Available",
-            MediaStatus::AVAILABLE => "Available",
-        }
-    }
-}
 
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -85,18 +67,6 @@ pub struct Media {
     pub rating_key: Value,
     pub rating_key4k: Value,
     pub service_url: String,
-}
-impl Media {
-    pub fn get_status(&self) -> MediaStatus {
-        match self.status {
-            1 => MediaStatus::UNKNOWN,
-            2 => MediaStatus::PENDING,
-            3 => MediaStatus::PROCESSING,
-            4 => MediaStatus::PARTIALLY_AVAILABLE,
-            5 => MediaStatus::AVAILABLE,
-            _ => MediaStatus::UNKNOWN,
-        }
-    }
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]

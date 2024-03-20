@@ -73,8 +73,8 @@ impl Sonarr {
     fn get_last_seven_days_calendars(&self) -> anyhow::Result<Vec<sonarr::Calendar>> {
         let url = format!("{}/api/v3/calendar", self.address);
         let local_datetime = Local::now();
-        let date_start = local_datetime.date_naive();
-        let date_end = date_start + Duration::days(1);
+        let date_end = local_datetime.date_naive();
+        let date_start = date_end - Duration::days(7);
         let format = StrftimeItems::new("%Y-%m-%d");
         let start_date= date_start.format_with_items(format.clone()).to_string();
         let end_date = date_end.format_with_items(format).to_string();
@@ -153,7 +153,7 @@ impl Sonarr {
         }).collect()
     }
 
-    pub fn _get_status(&self) -> sonarr::Status {
+    fn _get_status(&self) -> sonarr::Status {
         let url = format!("{}/api/v3/system/status", self.address);
         let response = self.client
             .as_ref()
@@ -163,7 +163,7 @@ impl Sonarr {
             .expect("Failed to get sonarr status");
         response.json().unwrap()
     }
-    pub fn _debug(&self, uri: &str) -> String {
+    fn _debug(&self, uri: &str) -> String {
         let url = format!("{}/api/v3/{}", self.address, uri);
         let response = self.client
             .as_ref()
