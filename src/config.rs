@@ -83,7 +83,11 @@ pub fn get_tasks(config: Config) -> anyhow::Result<Vec<Task>> {
         tasks.push(Task::Radarr(radarr));
     }
     if let Some(overseerr) = config.overseerr {
-        let overseerr = Overseerr::new(overseerr.address, overseerr.api_key)?;
+        let mut reqs = 20;
+        if let Some(requests) = overseerr.requests {
+            reqs = requests;
+        }
+        let overseerr = Overseerr::new(overseerr.address, overseerr.api_key, reqs)?;
         tasks.push(Task::Overseerr(overseerr));
     }
     Ok(tasks)

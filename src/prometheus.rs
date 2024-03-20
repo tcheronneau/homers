@@ -91,6 +91,7 @@ struct OverseerrLabels {
     pub requested_by: String,
     pub request_status: String,
     pub media_title: String,
+    pub requested_at: String,
 }
 
 pub fn format_metrics(task_result: Vec<TaskResult>) -> anyhow::Result<String> {
@@ -264,6 +265,7 @@ pub fn format_overseerr_metrics(requests: Vec<OverseerrRequest>, registry: &mut 
             requested_by: request.requested_by.to_string(),
             request_status: request.status.to_string(),
             media_title: request.media_title,
+            requested_at: request.requested_at,
         };
         overseerr_request
             .get_or_create(&labels)

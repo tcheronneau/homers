@@ -34,6 +34,7 @@ pub struct OverseerrRequest {
     pub requested_by: String,
     pub media_status: i64,
     pub media_title: String,
+    pub requested_at: String,
 }
 
 #[derive(Debug, Deserialize, Clone, Serialize)]
@@ -41,11 +42,12 @@ pub struct Overseerr {
     pub address: String,
     #[serde(rename = "apikey")]
     pub api_key: String,
+    pub requests: Option<i64>,
     #[serde(skip)]
     client: Option<reqwest::blocking::Client>,
 }
 impl Overseerr {
-    pub fn new(address: String, api_key: String) -> anyhow::Result<Overseerr> {
+    pub fn new(address: String, api_key: String, requests: i64) -> anyhow::Result<Overseerr> {
         let mut headers = header::HeaderMap::new();
         initialize_api_key(api_key.clone());
         let mut header_api_key = header::HeaderValue::from_str(&*get_api_key()).unwrap();
@@ -59,6 +61,7 @@ impl Overseerr {
         Ok(Overseerr {
             address,
             api_key,
+            requests: Some(requests),
             client: Some(client),
         })
     }
@@ -69,7 +72,7 @@ impl Overseerr {
             .context("Failed to get client")?
             .get(&url)
             .query(&[("sort", "added")])
-            .query(&[("take", "20")])
+            .query(&[("take", self.requests.unwrap().to_string())])
             .send()
             .context("Failed to get requests")?;
         let requests = response.json::<overseerr::Request>().context("Failed to parse get_requests")?;
@@ -88,6 +91,7 @@ impl Overseerr {
                 requested_by: self.get_username(request.clone())?, 
                 media_status: request.media.status,
                 media_title,
+                requested_at: request.created_at,
             };
             overseerr_requests.push(overseerr_request);
         }
