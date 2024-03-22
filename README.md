@@ -27,7 +27,19 @@ api_key=""
 [tautulli]
 address="http://localhost:8181"
 api_key=""
+
+[radarr]
+address="http://localhost:7878"
+api_key=""
+
+[overseerr]
+address="http://localhost:5055"
+api_key=""
+requests=200
 ```
+
+For overseerr you can customize the number of requests you want to pull. Default is 20.  
+
 
 ## Building the project 
 
@@ -42,17 +54,24 @@ nix build .#docker
 docker load < ./result
 ```
 
+
 ## Advancement
 
 So far it's not doing much.   
-- Retrieve Sonarr today's calendar
-- Retrieve Tautulli activity
-- Retrieve Tautulli library information
+[X] Retrieve Sonarr today's calendar
+[X] Retrieve Tautulli activity
+[X] Retrieve Tautulli library information
+[X] Retrieve Overseerr requests
+[X] Retrieve missing episodes from sonarr
+[ ] Retrieve watch information from tautulli
+[ ] Connect to ombi (I'm not using it but if required could do)
+[ ] Other
 
 ## Roadmap
 
 The point is to at least support what Varken was doing. 
-There will also be a Grafana dashboard. 
+There will also be a Grafana dashboard.  
+Grafana dashboard is now live at [Grafana](https://grafana.com/grafana/dashboards/20744).
 
 
 ## Acknowledgments
