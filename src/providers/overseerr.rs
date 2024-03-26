@@ -44,7 +44,7 @@ pub struct Overseerr {
     pub api_key: String,
     pub requests: Option<i64>,
     #[serde(skip)]
-    client: Option<reqwest::blocking::Client>,
+    client: reqwest::blocking::Client,
 }
 impl Overseerr {
     pub fn new(address: String, api_key: String, requests: i64) -> anyhow::Result<Overseerr> {
@@ -62,14 +62,12 @@ impl Overseerr {
             address,
             api_key,
             requests: Some(requests),
-            client: Some(client),
+            client,
         })
     }
     fn get_requests(&self) -> anyhow::Result<Vec<overseerr::Result>> {
         let url = format!("{}/api/v1/request", self.address);
         let response = self.client
-            .as_ref()
-            .context("Failed to get client")?
             .get(&url)
             .query(&[("sort", "added")])
             .query(&[("take", self.requests.unwrap().to_string())])
@@ -109,8 +107,6 @@ impl Overseerr {
     fn get_media_title(&self, media_type: &str, media_id: i64) -> anyhow::Result<String> {
         let url = format!("{}/api/v1/{}/{}", self.address, media_type, media_id);
         let response = self.client
-            .as_ref()
-            .context("Failed to get client")?
             .get(&url)
             .send()
             .context("Failed to get media title")?;

@@ -11,9 +11,9 @@ pub struct Tautulli {
     pub address: String,
     #[serde(rename = "apikey")]
     pub api_key: String,
-    api_url: Option<String>,
+    api_url: String,
     #[serde(skip)]
-    client: Option<reqwest::blocking::Client>,
+    client: reqwest::blocking::Client,
 }
 
 #[derive(Debug, Deserialize, Clone, Serialize)]
@@ -57,15 +57,13 @@ impl Tautulli {
         Ok(Tautulli {
             api_key,
             address,
-            api_url: Some(api_url),
-            client: Some(client),
+            api_url,
+            client,
         })
     }
     pub fn get(&self, command: &str) -> anyhow::Result<tautulli::TautulliData> {
-        let url = format!("{}{}", self.api_url.as_ref().unwrap(), command);
+        let url = format!("{}{}", self.api_url, command);
         let response = self.client
-            .as_ref()
-            .expect("Failed to get client")
             .get(&url)
             .send()?;
         let response = response.text().expect("Failed to get response text");

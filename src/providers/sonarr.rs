@@ -34,7 +34,7 @@ pub struct Sonarr {
     #[serde(rename = "apikey")]
     pub api_key: String,
     #[serde(skip)]
-    client: Option<reqwest::blocking::Client>,
+    client: reqwest::blocking::Client,
 }
 
 #[derive(Debug, Deserialize, Clone, Serialize)]
@@ -67,7 +67,7 @@ impl Sonarr {
         Ok(Sonarr {
             address,
             api_key,
-            client: Some(client),
+            client,
         })
     }
     fn get_last_seven_days_calendars(&self) -> anyhow::Result<Vec<sonarr::Calendar>> {
@@ -81,8 +81,6 @@ impl Sonarr {
 
         let params = [("start", &start_date), ("end", &end_date), ("includeSeries", &true.to_string())];
         let response = self.client
-            .as_ref()
-            .expect("Sonarr client not initialized")
             .get(url)
             .query(&params)
             .send()
@@ -107,8 +105,6 @@ impl Sonarr {
         let formatted_date_end = date_end.format_with_items(format).to_string();
         let params = [("start", &formatted_date_start), ("end", &formatted_date_end), ("includeSeries", &true.to_string())];
         let response = self.client
-            .as_ref()
-            .expect("Sonarr client not initialized")
             .get(url)
             .query(&params)
             .send()
@@ -156,8 +152,6 @@ impl Sonarr {
     fn _get_status(&self) -> sonarr::Status {
         let url = format!("{}/api/v3/system/status", self.address);
         let response = self.client
-            .as_ref()
-            .expect("Sonarr client not initialized")
             .get(url)
             .send()
             .expect("Failed to get sonarr status");
@@ -166,8 +160,6 @@ impl Sonarr {
     fn _debug(&self, uri: &str) -> String {
         let url = format!("{}/api/v3/{}", self.address, uri);
         let response = self.client
-            .as_ref()
-            .expect("Sonarr client not initialized")
             .get(url)
             .send()
             .expect("Failed to get sonarr status");

@@ -47,7 +47,7 @@ pub struct Radarr {
     #[serde(rename = "apikey")]
     pub api_key: String,
     #[serde(skip)]
-    client: Option<reqwest::blocking::Client>,
+    client: reqwest::blocking::Client,
 }
 impl Radarr {
     pub fn new(address: String, api_key: String) -> anyhow::Result<Radarr> {
@@ -63,14 +63,12 @@ impl Radarr {
         Ok(Radarr {
             address: format!("{}/api/v3", address),
             api_key,
-            client: Some(client),
+            client,
         })
     }
     fn get_movies(&self) -> anyhow::Result<Vec<Movie>> {
         let url = format!("{}/movie", self.address);
         let response = self.client
-            .as_ref()
-            .expect("Failed to create radarr client")
             .get(&url)
             .send()?;
         let movies: Vec<Movie> = response.json()?;
