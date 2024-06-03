@@ -11,6 +11,7 @@ pub struct Tautulli {
     pub address: String,
     #[serde(rename = "apikey")]
     pub api_key: String,
+    #[serde(default)]
     api_url: String,
     #[serde(skip)]
     client: reqwest::Client,
