@@ -13,7 +13,7 @@ pub struct Tautulli {
     pub api_key: String,
     api_url: String,
     #[serde(skip)]
-    client: reqwest::blocking::Client,
+    client: reqwest::Client,
 }
 
 #[derive(Debug, Deserialize, Clone, Serialize)]
@@ -52,7 +52,7 @@ impl std::fmt::Display for SessionSummary {
 impl Tautulli {
     pub fn new(address: String, api_key: String) -> anyhow::Result<Tautulli> {
         let api_url = format!("{}/api/v2?apikey={}&cmd=", address, api_key);
-        let client = reqwest::blocking::Client::builder()
+        let client = reqwest::Client::builder()
             .build()?;
         Ok(Tautulli {
             api_key,
@@ -61,18 +61,19 @@ impl Tautulli {
             client,
         })
     }
-    pub fn get(&self, command: &str) -> anyhow::Result<tautulli::TautulliData> {
+    pub async fn get(&self, command: &str) -> anyhow::Result<tautulli::TautulliData> {
         let url = format!("{}{}", self.api_url, command);
         let response = self.client
             .get(&url)
-            .send()?;
-        let response = response.text().expect("Failed to get response text");
+            .send()
+            .await?;
+        let response = response.text().await.expect("Failed to get response text");
         debug!("{}", response);
         let tautulli_response: tautulli::TautulliResponse = serde_json::from_str(&response).expect("Failed to parse JSON");
         Ok(tautulli_response.response.data)
     }
-    pub fn get_libraries(&self) -> anyhow::Result<Vec<tautulli::Library>>{
-        let get_libraries = self.get("get_libraries")?;
+    pub async fn get_libraries(&self) -> anyhow::Result<Vec<tautulli::Library>>{
+        let get_libraries = self.get("get_libraries").await?;
         let libraries: Vec<tautulli::Library> = get_libraries.into();
         Ok(libraries)
     }
@@ -101,8 +102,8 @@ impl Tautulli {
 
         
     }
-    pub fn get_session_summary(&self) -> anyhow::Result<Vec<SessionSummary>> {
-        let get_activities = self.get("get_activity")?;
+    pub async fn get_session_summary(&self) -> anyhow::Result<Vec<SessionSummary>> {
+        let get_activities = self.get("get_activity").await?;
         let activity: tautulli::Activity = get_activities.into();
         let session_summaries: Vec<SessionSummary> = activity.sessions.iter().map(|session| {
             let location = Runtime::new()

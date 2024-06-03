@@ -4,7 +4,7 @@ use serde::{Serialize, Deserialize};
 use lazy_static::lazy_static;
 use std::sync::{Mutex, Once,Arc};
 use log::debug;
-use anyhow::{Result, Context};
+use anyhow::Context;
 
 use crate::providers::structs::sonarr;
 
@@ -34,7 +34,7 @@ pub struct Sonarr {
     #[serde(rename = "apikey")]
     pub api_key: String,
     #[serde(skip)]
-    client: reqwest::blocking::Client,
+    client: reqwest::Client,
 }
 
 #[derive(Debug, Deserialize, Clone, Serialize)]
@@ -61,7 +61,7 @@ impl Sonarr {
         let mut header_api_key = header::HeaderValue::from_str(&*get_api_key()).unwrap();
         header_api_key.set_sensitive(true);
         headers.insert("X-Api-Key", header_api_key);
-        let client = reqwest::blocking::Client::builder()
+        let client = reqwest::Client::builder()
             .default_headers(headers)
             .build()?;
         Ok(Sonarr {
@@ -70,7 +70,7 @@ impl Sonarr {
             client,
         })
     }
-    fn get_last_seven_days_calendars(&self) -> anyhow::Result<Vec<sonarr::Calendar>> {
+    async fn get_last_seven_days_calendars(&self) -> anyhow::Result<Vec<sonarr::Calendar>> {
         let url = format!("{}/api/v3/calendar", self.address);
         let local_datetime = Local::now();
         let date_end = local_datetime.date_naive();
@@ -80,16 +80,19 @@ impl Sonarr {
         let end_date = date_end.format_with_items(format).to_string();
 
         let params = [("start", &start_date), ("end", &end_date), ("includeSeries", &true.to_string())];
+        debug!("Params: {:?}", params);
         let response = self.client
             .get(url)
             .query(&params)
             .send()
+            .await
             .expect("Failed to get sonarr calendar");
         let calendars = response.json::<Vec<sonarr::Calendar>>()
+            .await
             .context("Failed to parse sonarr calendar")?;
         Ok(calendars)
     }
-    fn get_today_calendars(&self) -> anyhow::Result<Vec<sonarr::Calendar>> {
+    async fn get_today_calendars(&self) -> anyhow::Result<Vec<sonarr::Calendar>> {
         let url = format!("{}/api/v3/calendar", self.address);
         let local_datetime = Local::now();
 
@@ -108,14 +111,16 @@ impl Sonarr {
             .get(url)
             .query(&params)
             .send()
+            .await
             .context("Failed to get sonarr calendar")?;
         let calendars = response.json::<Vec<sonarr::Calendar>>()
+            .await
             .context("Failed to parse sonarr calendar")?;
         Ok(calendars)
     }
 
-    pub fn get_today_shows(&self) -> anyhow::Result<Vec<SonarrEpisode>> {
-        let calendars = self.get_today_calendars()?;
+    pub async fn get_today_shows(&self) -> anyhow::Result<Vec<SonarrEpisode>> {
+        let calendars = self.get_today_calendars().await?;
         calendars.iter().map(|calendar| {
             debug!("{:?}", calendar);
             Ok(SonarrEpisode {
@@ -130,8 +135,8 @@ impl Sonarr {
         }).collect()
     }
 
-    pub fn get_last_week_missing_shows(&self) -> anyhow::Result<Vec<SonarrEpisode>> {
-        let calendars = self.get_last_seven_days_calendars()?;
+    pub async fn get_last_week_missing_shows(&self) -> anyhow::Result<Vec<SonarrEpisode>> {
+        let calendars = self.get_last_seven_days_calendars().await?;
         calendars.iter().filter_map(|calendar| {
             if !calendar.has_file {
                 Some(Ok(SonarrEpisode {
@@ -149,20 +154,22 @@ impl Sonarr {
         }).collect()
     }
 
-    fn _get_status(&self) -> sonarr::Status {
+    async fn _get_status(&self) -> sonarr::Status {
         let url = format!("{}/api/v3/system/status", self.address);
         let response = self.client
             .get(url)
             .send()
+            .await
             .expect("Failed to get sonarr status");
-        response.json().unwrap()
+        response.json().await.unwrap()
     }
-    fn _debug(&self, uri: &str) -> String {
+    async fn _debug(&self, uri: &str) -> String {
         let url = format!("{}/api/v3/{}", self.address, uri);
         let response = self.client
             .get(url)
             .send()
+            .await
             .expect("Failed to get sonarr status");
-        response.text().unwrap()
+        response.text().await.unwrap()
     }
 }

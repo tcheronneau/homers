@@ -44,7 +44,7 @@ pub struct Overseerr {
     pub api_key: String,
     pub requests: Option<i64>,
     #[serde(skip)]
-    client: reqwest::blocking::Client,
+    client: reqwest::Client,
 }
 impl Overseerr {
     pub fn new(address: String, api_key: String, requests: i64) -> anyhow::Result<Overseerr> {
@@ -54,7 +54,7 @@ impl Overseerr {
         header_api_key.set_sensitive(true);
         headers.insert("X-Api-Key", header_api_key);
         headers.insert("Content-Type", header::HeaderValue::from_static("application/json"));
-        let client = reqwest::blocking::Client::builder()
+        let client = reqwest::Client::builder()
             .default_headers(headers)
             .build()
             .context("Failed to create Overseerr client ")?;
@@ -65,23 +65,24 @@ impl Overseerr {
             client,
         })
     }
-    fn get_requests(&self) -> anyhow::Result<Vec<overseerr::Result>> {
+    async fn get_requests(&self) -> anyhow::Result<Vec<overseerr::Result>> {
         let url = format!("{}/api/v1/request", self.address);
         let response = self.client
             .get(&url)
             .query(&[("sort", "added")])
             .query(&[("take", self.requests.unwrap().to_string())])
             .send()
+            .await
             .context("Failed to get requests")?;
-        let requests = response.json::<overseerr::Request>().context("Failed to parse get_requests")?;
+        let requests = response.json::<overseerr::Request>().await.context("Failed to parse get_requests")?;
         Ok(requests.results)
         //Ok(Vec::new())
     }
-    pub fn get_overseerr_requests(&self) -> anyhow::Result<Vec<OverseerrRequest>> {
-        let requests = self.get_requests()?;
+    pub async fn get_overseerr_requests(&self) -> anyhow::Result<Vec<OverseerrRequest>> {
+        let requests = self.get_requests().await?;
         let mut overseerr_requests = Vec::new();
         for request in requests {
-            let media_title = self.get_media_title(&request.media.media_type, request.media.tmdb_id)?;
+            let media_title = self.get_media_title(&request.media.media_type, request.media.tmdb_id).await?;
             let overseerr_request = OverseerrRequest {
                 media_type: request.media.media_type.clone(),
                 media_id: request.media.id,
@@ -104,22 +105,23 @@ impl Overseerr {
             }
         }
     }
-    fn get_media_title(&self, media_type: &str, media_id: i64) -> anyhow::Result<String> {
+    async fn get_media_title(&self, media_type: &str, media_id: i64) -> anyhow::Result<String> {
         let url = format!("{}/api/v1/{}/{}", self.address, media_type, media_id);
         let response = self.client
             .get(&url)
             .send()
+            .await
             .context("Failed to get media title")?;
         match media_type {
             "movie" => {
-                let movie: overseerr::Movie = response.json().context("Failed to parse movie")?;
+                let movie: overseerr::Movie = response.json().await.context("Failed to parse movie")?;
                 match movie.original_title {
                     Some(title) => Ok(title),
                     None => Ok("Unknown".to_string()),
                 }
             }
             "tv" => {
-                let show: overseerr::Tv = response.json().context("Failed to parse show")?;
+                let show: overseerr::Tv = response.json().await.context("Failed to parse show")?;
                 Ok(show.name)
             }
             _ => Ok("Unknown".to_string()),

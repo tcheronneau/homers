@@ -47,6 +47,7 @@ pub async fn configure_rocket(config: Config) -> Rocket<Build> {
         .unwrap_or_else(exit_if_handle_fatal)
         .unwrap_or_else(exit_if_handle_fatal);
     rocket::custom(config.http)
+        .manage(config.sonarr)
         .manage(tasks)
         .mount("/", routes![index,metrics])
 }
@@ -67,51 +68,51 @@ async fn metrics(
 ) -> Result<MetricsResponse,MetricsError> {
     Ok(serve_metrics(Format::Prometheus, unscheduled_tasks).await)
 }
+async fn process_task(task: Task) -> Result<TaskResult, JoinError>{
+    info!(
+        "Requesting data for {:?}",
+        &task,
+    );
+    match task {
+        Task::SonarrToday(sonarr) => {
+            let result = sonarr.get_today_shows().await;
+            Ok(TaskResult::SonarrToday(result))
+        },
+        Task::SonarrMissing(sonarr) => {
+            let result = sonarr.get_last_week_missing_shows().await;
+            Ok(TaskResult::SonarrMissing(result))
+        },
+        Task::TautulliSessionPercentage(tautulli) => {
+            let result = tautulli.get_session_summary().await;
+            Ok(TaskResult::TautulliSessionPercentage(result))
+        },
+        Task::TautulliSession(tautulli) => {
+            let result = tautulli.get_session_summary().await;
+            Ok(TaskResult::TautulliSession(result))
+        },
+        Task::TautulliLibrary(tautulli) => {
+            let result = tautulli.get_libraries().await;
+            Ok(TaskResult::TautulliLibrary(result))
+        },
+        Task::Radarr(radarr) => {
+            let result = radarr.get_radarr_movies().await;
+            Ok(TaskResult::Radarr(result))
+        },
+        Task::Overseerr(overseerr) => {
+            let result = overseerr.get_overseerr_requests().await;
+            Ok(TaskResult::Overseerr(result))
+        },
+        Task::Default => Ok(TaskResult::Default),
+    }
+}
 
 async fn serve_metrics(
     format: Format,
     unscheduled_tasks: &State<Vec<Task>>,
 ) -> MetricsResponse {
     let mut join_set = JoinSet::new();
-
-    for task in unscheduled_tasks.iter().cloned() {
-        join_set.spawn(task::spawn_blocking(move || {
-            info!(
-                "Requesting data for {:?}",
-                &task,
-            );
-            match task {
-                Task::SonarrToday(sonarr) => {
-                    let result = sonarr.get_today_shows();
-                    TaskResult::SonarrToday(result)
-                },
-                Task::SonarrMissing(sonarr) => {
-                    let result = sonarr.get_last_week_missing_shows();
-                    TaskResult::SonarrMissing(result)
-                },
-                Task::TautulliSessionPercentage(tautulli) => {
-                    let result = tautulli.get_session_summary();
-                    TaskResult::TautulliSessionPercentage(result)
-                },
-                Task::TautulliSession(tautulli) => {
-                    let result = tautulli.get_session_summary();
-                    TaskResult::TautulliSession(result)
-                },
-                Task::TautulliLibrary(tautulli) => {
-                    let result = tautulli.get_libraries();
-                    TaskResult::TautulliLibrary(result)
-                },
-                Task::Radarr(radarr) => {
-                    let result = radarr.get_radarr_movies();
-                    TaskResult::Radarr(result)
-                },
-                Task::Overseerr(overseerr) => {
-                    let result = overseerr.get_overseerr_requests();
-                    TaskResult::Overseerr(result)
-                },
-                Task::Default => TaskResult::Default,
-            }
-        }));
+    for task in unscheduled_tasks.iter().cloned(){
+        join_set.spawn(process_task(task));
     }
 
     wait_for_metrics(format,join_set).await.map_or_else(

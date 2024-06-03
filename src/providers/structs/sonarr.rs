@@ -96,8 +96,9 @@ pub struct Calendar {
     pub has_file: bool,
     pub monitored: bool,
     pub unverified_scene_numbering: bool,
-    pub grabbed: bool,
+    pub grabbed: Option<bool>,
     pub id: i64,
+    pub finale_type: Option<String>,
     pub series: Series,
 }
 

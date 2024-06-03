@@ -47,7 +47,7 @@ pub struct Radarr {
     #[serde(rename = "apikey")]
     pub api_key: String,
     #[serde(skip)]
-    client: reqwest::blocking::Client,
+    client: reqwest::Client,
 }
 impl Radarr {
     pub fn new(address: String, api_key: String) -> anyhow::Result<Radarr> {
@@ -57,7 +57,7 @@ impl Radarr {
         header_api_key.set_sensitive(true);
         headers.insert("X-Api-Key", header_api_key);
         headers.insert("Accept", header::HeaderValue::from_static("application/json"));
-        let client = reqwest::blocking::Client::builder()
+        let client = reqwest::Client::builder()
             .default_headers(headers)
             .build()?;
         Ok(Radarr {
@@ -66,16 +66,17 @@ impl Radarr {
             client,
         })
     }
-    fn get_movies(&self) -> anyhow::Result<Vec<Movie>> {
+    async fn get_movies(&self) -> anyhow::Result<Vec<Movie>> {
         let url = format!("{}/movie", self.address);
         let response = self.client
             .get(&url)
-            .send()?;
-        let movies: Vec<Movie> = response.json()?;
+            .send()
+            .await?;
+        let movies: Vec<Movie> = response.json().await?;
         Ok(movies)
     }
-    pub fn get_radarr_movies(&self) -> anyhow::Result<Vec<RadarrMovie>> {
-        let movies = self.get_movies()?;
+    pub async fn get_radarr_movies(&self) -> anyhow::Result<Vec<RadarrMovie>> {
+        let movies = self.get_movies().await?;
         let mut radarr_movies = Vec::new();
         for movie in movies {
             radarr_movies.push(RadarrMovie {
