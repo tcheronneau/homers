@@ -47,7 +47,6 @@ pub async fn configure_rocket(config: Config) -> Rocket<Build> {
         .unwrap_or_else(exit_if_handle_fatal)
         .unwrap_or_else(exit_if_handle_fatal);
     rocket::custom(config.http)
-        .manage(config.sonarr)
         .manage(tasks)
         .mount("/", routes![index,metrics])
 }
