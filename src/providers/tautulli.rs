@@ -1,5 +1,5 @@
 use reqwest;
-use log::debug;
+use log::{debug, error};
 use serde::{Serialize, Deserialize};
 use ipgeolocate::{Locator, Service};
 use tokio::runtime::Runtime;
@@ -106,42 +106,54 @@ impl Tautulli {
     pub async fn get_session_summary(&self) -> anyhow::Result<Vec<SessionSummary>> {
         let get_activities = self.get("get_activity").await?;
         let activity: tautulli::Activity = get_activities.into();
-        let session_summaries: Vec<SessionSummary> = activity.sessions.iter().map(|session| {
-            let location = Runtime::new()
-                .unwrap()
-                .block_on(
-                    self.get_ip_info(&session.ip_address)
-                );
-            if session.media_type == "episode" {
-                SessionSummary {
-                    user: session.user.clone(),
-                    title: session.grandparent_title.clone(),
-                    state: session.state.clone(),
-                    progress: session.progress_percent.clone(),
-                    quality: session.video_full_resolution.clone(),
-                    quality_profile: session.quality_profile.clone(),
-                    video_stream: session.video_decision.clone(),
-                    media_type: session.media_type.clone(),
-                    season_number: Some(session.parent_media_index.clone()),
-                    episode_number: Some(session.media_index.clone()),
-                    location: Result::expect(location, "Failed to get location"),
+        //let session_summaries: Vec<SessionSummary> = activity.sessions.iter().map(|session| {
+        let mut session_summaries = Vec::new();
+        for session in &activity.sessions {
+            let location = match self.get_ip_info(&session.ip_address).await {
+                Ok(location) => location,
+                Err(e) => {
+                    error!("Failed to get location: {}", e);
+                    TautulliLocation {
+                        city: "Unknown".to_string(),
+                        country: "Unknown".to_string(),
+                        ip_address: session.ip_address.clone(),
+                        latitude: "0.0".to_string(),
+                        longitude: "0.0".to_string(),
+                    }
                 }
-            } else {
-                SessionSummary {
-                    user: session.user.clone(),
-                    title: session.title.clone(),
-                    state: session.state.clone(),
-                    progress: session.progress_percent.clone(),
-                    quality: session.video_full_resolution.clone(),
-                    quality_profile: session.quality_profile.clone(),
-                    video_stream: session.video_decision.clone(),
-                    media_type: session.media_type.clone(),
-                    season_number: None,
-                    episode_number: None,
-                    location: Result::expect(location, "Failed to get location"),
-                }
-            }
-        }).collect();
+            };
+            let session_summary =
+                if session.media_type == "episode" {
+                    SessionSummary {
+                        user: session.user.clone(),
+                        title: session.grandparent_title.clone(),
+                        state: session.state.clone(),
+                        progress: session.progress_percent.clone(),
+                        quality: session.video_full_resolution.clone(),
+                        quality_profile: session.quality_profile.clone(),
+                        video_stream: session.video_decision.clone(),
+                        media_type: session.media_type.clone(),
+                        season_number: Some(session.parent_media_index.clone()),
+                        episode_number: Some(session.media_index.clone()),
+                        location, 
+                    }
+                } else {
+                    SessionSummary {
+                        user: session.user.clone(),
+                        title: session.title.clone(),
+                        state: session.state.clone(),
+                        progress: session.progress_percent.clone(),
+                        quality: session.video_full_resolution.clone(),
+                        quality_profile: session.quality_profile.clone(),
+                        video_stream: session.video_decision.clone(),
+                        media_type: session.media_type.clone(),
+                        season_number: None,
+                        episode_number: None,
+                        location, 
+                    }
+                };
+            session_summaries.push(session_summary);
+        }
         Ok(session_summaries)
     }
 }
