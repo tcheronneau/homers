@@ -200,5 +200,5 @@ pub struct Season {
 #[serde(rename_all = "camelCase")]
 pub struct Ratings {
     pub votes: i64,
-    pub value: i64,
+    pub value: f64,
 }

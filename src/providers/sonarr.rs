@@ -82,14 +82,19 @@ impl Sonarr {
         let params = [("start", &start_date), ("end", &end_date), ("includeSeries", &true.to_string())];
         debug!("Params: {:?}", params);
         let response = self.client
-            .get(url)
+            .get(&url)
             .query(&params)
             .send()
             .await
             .expect("Failed to get sonarr calendar");
-        let calendars = response.json::<Vec<sonarr::Calendar>>()
+        let calendars = match response.json::<Vec<sonarr::Calendar>>() 
             .await
-            .context("Failed to parse sonarr calendar")?;
+            {
+                Ok(calendars) => calendars,
+                Err(e) => {
+                    anyhow::bail!("Failed to parse sonarr calendar: {:?}", e);
+                }
+            };
         Ok(calendars)
     }
     async fn get_today_calendars(&self) -> anyhow::Result<Vec<sonarr::Calendar>> {
@@ -113,9 +118,14 @@ impl Sonarr {
             .send()
             .await
             .context("Failed to get sonarr calendar")?;
-        let calendars = response.json::<Vec<sonarr::Calendar>>()
+        let calendars = match response.json::<Vec<sonarr::Calendar>>() 
             .await
-            .context("Failed to parse sonarr calendar")?;
+            {
+                Ok(calendars) => calendars,
+                Err(e) => {
+                    anyhow::bail!("Failed to parse sonarr calendar: {:?}", e);
+                }
+            };
         Ok(calendars)
     }
 
