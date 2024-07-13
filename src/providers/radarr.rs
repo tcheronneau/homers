@@ -72,7 +72,12 @@ impl Radarr {
             .get(&url)
             .send()
             .await?;
-        let movies: Vec<Movie> = response.json().await?;
+        let movies: Vec<Movie> = match response.json().await {
+            Ok(movies) => movies,
+            Err(e) => {
+                anyhow::bail!("Failed to parse radarr get_movies response: {:?}", e);
+            }
+        };
         Ok(movies)
     }
     pub async fn get_radarr_movies(&self) -> anyhow::Result<Vec<RadarrMovie>> {

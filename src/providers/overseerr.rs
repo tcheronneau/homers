@@ -74,7 +74,12 @@ impl Overseerr {
             .send()
             .await
             .context("Failed to get requests")?;
-        let requests = response.json::<overseerr::Request>().await.context("Failed to parse get_requests")?;
+        let requests = match response.json::<overseerr::Request>().await {
+            Ok(requests) => requests,
+            Err(e) => {
+                anyhow::bail!("Failed to parse overseerr get_requests response: {:?}", e);
+            }
+        };
         Ok(requests.results)
         //Ok(Vec::new())
     }

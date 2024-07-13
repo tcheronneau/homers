@@ -68,10 +68,16 @@ impl Tautulli {
             .get(&url)
             .send()
             .await?;
-        let response = response.text().await.expect("Failed to get response text");
-        debug!("{}", response);
-        let tautulli_response: tautulli::TautulliResponse = serde_json::from_str(&response).expect("Failed to parse JSON");
-        Ok(tautulli_response.response.data)
+        //let response = response.text().await.expect("Failed to get response text");
+        //let tautulli_response: tautulli::TautulliResponse = serde_json::from_str(&response).expect("Failed to parse JSON");
+        let tautulli: tautulli::TautulliResponse = match response.json().await {
+            Ok(tautulli) => tautulli,
+            Err(e) => {
+                anyhow::bail!("Failed to parse tautulli get response: {:?}", e);
+            }
+        };
+        //Ok(tautulli_response.response.data)
+        Ok(tautulli.response.data)
     }
     pub async fn get_libraries(&self) -> anyhow::Result<Vec<tautulli::Library>>{
         let get_libraries = self.get("get_libraries").await?;
