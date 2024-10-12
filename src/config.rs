@@ -68,7 +68,7 @@ pub fn read(config_file: PathBuf, log_level: Level) -> anyhow::Result<Config> {
 pub fn get_tasks(config: Config) -> anyhow::Result<Vec<Task>> {
     let mut tasks = Vec::new();
     if let Some(sonarr) = config.sonarr {
-        let sonarr = Sonarr::new(sonarr.address, sonarr.api_key)?;
+        let sonarr = Sonarr::new(&sonarr.address, &sonarr.api_key)?;
         tasks.push(Task::SonarrToday(sonarr.clone()));
         tasks.push(Task::SonarrMissing(sonarr));
     }

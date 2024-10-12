@@ -13,20 +13,20 @@ lazy_static! {
     static ref INIT: Once = Once::new();
 }
 
-fn initialize_api_key(api_key: String) {
-    INIT.call_once(|| {
-        *API_KEY.lock().unwrap() = Some(Arc::new(api_key));
-    });
-}
+//fn _initialize_api_key(api_key: &str) {
+//    INIT.call_once(|| {
+//        *API_KEY.lock().unwrap() = Some(Arc::new(api_key));
+//    });
+//}
 
-fn get_api_key() -> Arc<String> {
-    INIT.call_once(|| {
-        eprintln!("API key not initialized!");
-        std::process::exit(1);
-    });
-
-    Arc::clone(API_KEY.lock().unwrap().as_ref().unwrap())
-}
+//fn get_api_key() -> Arc<String> {
+//    INIT.call_once(|| {
+//        eprintln!("API key not initialized!");
+//        std::process::exit(1);
+//    });
+//
+//    Arc::clone(API_KEY.lock().unwrap().as_ref().unwrap())
+//}
 
 #[derive(Debug, Deserialize, Clone, Serialize)]
 pub struct Sonarr {
@@ -55,18 +55,19 @@ impl std::fmt::Display for SonarrEpisode {
 }
 
 impl Sonarr {
-    pub fn new(address: String, api_key: String) -> anyhow::Result<Sonarr>{
+    pub fn new(address: &str, api_key: &str) -> anyhow::Result<Sonarr>{
         let mut headers = header::HeaderMap::new();
-        initialize_api_key(api_key.clone());
-        let mut header_api_key = header::HeaderValue::from_str(&*get_api_key()).unwrap();
+        //initialize_api_key(api_key);
+        //let mut header_api_key = header::HeaderValue::from_str(&*get_api_key()).unwrap();
+        let mut header_api_key = header::HeaderValue::from_str(api_key).unwrap();
         header_api_key.set_sensitive(true);
         headers.insert("X-Api-Key", header_api_key);
         let client = reqwest::Client::builder()
             .default_headers(headers)
             .build()?;
         Ok(Sonarr {
-            address,
-            api_key,
+            address: address.to_string(),
+            api_key: api_key.to_string(),
             client,
         })
     }
