@@ -1,30 +1,8 @@
 use reqwest::header;
 use serde::{Serialize, Deserialize};
-use lazy_static::lazy_static;
-use std::sync::{Mutex, Once,Arc};
 use anyhow::Context;
 
 use crate::providers::structs::overseerr;
-
-lazy_static! {
-    static ref API_KEY: Mutex<Option<Arc<String>>> = Mutex::new(None);
-    static ref INIT: Once = Once::new();
-}
-
-fn initialize_api_key(api_key: String) {
-    INIT.call_once(|| {
-        *API_KEY.lock().unwrap() = Some(Arc::new(api_key));
-    });
-}
-
-fn get_api_key() -> Arc<String> {
-    INIT.call_once(|| {
-        eprintln!("API key not initialized!");
-        std::process::exit(1);
-    });
-
-    Arc::clone(API_KEY.lock().unwrap().as_ref().unwrap())
-}
 
 #[derive(Debug, Deserialize, Clone, Serialize)]
 pub struct OverseerrRequest {
@@ -47,10 +25,9 @@ pub struct Overseerr {
     client: reqwest::Client,
 }
 impl Overseerr {
-    pub fn new(address: String, api_key: String, requests: i64) -> anyhow::Result<Overseerr> {
+    pub fn new(address: &str, api_key: &str, requests: i64) -> anyhow::Result<Overseerr> {
         let mut headers = header::HeaderMap::new();
-        initialize_api_key(api_key.clone());
-        let mut header_api_key = header::HeaderValue::from_str(&*get_api_key()).unwrap();
+        let mut header_api_key = header::HeaderValue::from_str(api_key).unwrap();
         header_api_key.set_sensitive(true);
         headers.insert("X-Api-Key", header_api_key);
         headers.insert("Content-Type", header::HeaderValue::from_static("application/json"));
@@ -59,8 +36,8 @@ impl Overseerr {
             .build()
             .context("Failed to create Overseerr client ")?;
         Ok(Overseerr {
-            address,
-            api_key,
+            address: address.to_string(),
+            api_key: api_key.to_string(),
             requests: Some(requests),
             client,
         })

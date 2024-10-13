@@ -1,8 +1,7 @@
 use reqwest;
-use log::{debug, error};
+use log::error;
 use serde::{Serialize, Deserialize};
 use ipgeolocate::{Locator, Service};
-use tokio::runtime::Runtime;
 
 use crate::providers::structs::tautulli;
 
@@ -51,13 +50,13 @@ impl std::fmt::Display for SessionSummary {
 }
 
 impl Tautulli {
-    pub fn new(address: String, api_key: String) -> anyhow::Result<Tautulli> {
+    pub fn new(address: &str, api_key: &str) -> anyhow::Result<Tautulli> {
         let api_url = format!("{}/api/v2?apikey={}&cmd=", address, api_key);
         let client = reqwest::Client::builder()
             .build()?;
         Ok(Tautulli {
-            api_key,
-            address,
+            api_key: api_key.to_string(),
+            address: address.to_string(),
             api_url,
             client,
         })

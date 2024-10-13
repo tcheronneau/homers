@@ -73,13 +73,13 @@ pub fn get_tasks(config: Config) -> anyhow::Result<Vec<Task>> {
         tasks.push(Task::SonarrMissing(sonarr));
     }
     if let Some(tautulli) = config.tautulli {
-        let tautulli = Tautulli::new(tautulli.address, tautulli.api_key)?;
+        let tautulli = Tautulli::new(&tautulli.address, &tautulli.api_key)?;
         tasks.push(Task::TautulliSessionPercentage(tautulli.clone()));
         tasks.push(Task::TautulliSession(tautulli.clone()));
         tasks.push(Task::TautulliLibrary(tautulli));
     }
     if let Some(radarr) = config.radarr {
-        let radarr = Radarr::new(radarr.address, radarr.api_key)?;
+        let radarr = Radarr::new(&radarr.address, &radarr.api_key)?;
         tasks.push(Task::Radarr(radarr));
     }
     if let Some(overseerr) = config.overseerr {
@@ -87,7 +87,7 @@ pub fn get_tasks(config: Config) -> anyhow::Result<Vec<Task>> {
         if let Some(requests) = overseerr.requests {
             reqs = requests;
         }
-        let overseerr = Overseerr::new(overseerr.address, overseerr.api_key, reqs)?;
+        let overseerr = Overseerr::new(&overseerr.address, &overseerr.api_key, reqs)?;
         tasks.push(Task::Overseerr(overseerr));
     }
     Ok(tasks)

@@ -1,32 +1,11 @@
 use reqwest::header;
 use chrono::{Local, format::strftime::StrftimeItems, Duration};
 use serde::{Serialize, Deserialize};
-use lazy_static::lazy_static;
-use std::sync::{Mutex, Once,Arc};
 use log::debug;
 use anyhow::Context;
 
 use crate::providers::structs::sonarr;
 
-lazy_static! {
-    static ref API_KEY: Mutex<Option<Arc<String>>> = Mutex::new(None);
-    static ref INIT: Once = Once::new();
-}
-
-//fn _initialize_api_key(api_key: &str) {
-//    INIT.call_once(|| {
-//        *API_KEY.lock().unwrap() = Some(Arc::new(api_key));
-//    });
-//}
-
-//fn get_api_key() -> Arc<String> {
-//    INIT.call_once(|| {
-//        eprintln!("API key not initialized!");
-//        std::process::exit(1);
-//    });
-//
-//    Arc::clone(API_KEY.lock().unwrap().as_ref().unwrap())
-//}
 
 #[derive(Debug, Deserialize, Clone, Serialize)]
 pub struct Sonarr {

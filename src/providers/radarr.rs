@@ -1,29 +1,8 @@
 use reqwest::header;
 use serde::{Serialize, Deserialize};
-use lazy_static::lazy_static;
-use std::sync::{Mutex, Once,Arc};
 
 use crate::providers::structs::radarr::Movie;
 
-lazy_static! {
-    static ref API_KEY: Mutex<Option<Arc<String>>> = Mutex::new(None);
-    static ref INIT: Once = Once::new();
-}
-
-fn initialize_api_key(api_key: String) {
-    INIT.call_once(|| {
-        *API_KEY.lock().unwrap() = Some(Arc::new(api_key));
-    });
-}
-
-fn get_api_key() -> Arc<String> {
-    INIT.call_once(|| {
-        eprintln!("API key not initialized!");
-        std::process::exit(1);
-    });
-
-    Arc::clone(API_KEY.lock().unwrap().as_ref().unwrap())
-}
 
 #[derive(Debug, Deserialize, Clone, Serialize)]
 pub struct RadarrMovie {
@@ -50,10 +29,9 @@ pub struct Radarr {
     client: reqwest::Client,
 }
 impl Radarr {
-    pub fn new(address: String, api_key: String) -> anyhow::Result<Radarr> {
+    pub fn new(address: &str, api_key: &str) -> anyhow::Result<Radarr> {
         let mut headers = header::HeaderMap::new();
-        initialize_api_key(api_key.clone());
-        let mut header_api_key = header::HeaderValue::from_str(&*get_api_key()).unwrap();
+        let mut header_api_key = header::HeaderValue::from_str(&api_key).unwrap();
         header_api_key.set_sensitive(true);
         headers.insert("X-Api-Key", header_api_key);
         headers.insert("Accept", header::HeaderValue::from_static("application/json"));
@@ -62,7 +40,7 @@ impl Radarr {
             .build()?;
         Ok(Radarr {
             address: format!("{}/api/v3", address),
-            api_key,
+            api_key: api_key.to_string(),
             client,
         })
     }
