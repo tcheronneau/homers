@@ -1,7 +1,7 @@
-use reqwest;
-use log::error;
-use serde::{Serialize, Deserialize};
 use ipgeolocate::{Locator, Service};
+use log::error;
+use reqwest;
+use serde::{Deserialize, Serialize};
 
 use crate::providers::structs::tautulli;
 
@@ -42,7 +42,16 @@ pub struct SessionSummary {
 impl std::fmt::Display for SessionSummary {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.media_type == "episode" {
-            write!(f, "User {} is watching {} S{:02}E{:02}. Currently the play is {} and {}% is watched", self.user, self.title, self.season_number.as_ref().unwrap(), self.episode_number.as_ref().unwrap(), self.state, self.progress)
+            write!(
+                f,
+                "User {} is watching {} S{:02}E{:02}. Currently the play is {} and {}% is watched",
+                self.user,
+                self.title,
+                self.season_number.as_ref().unwrap(),
+                self.episode_number.as_ref().unwrap(),
+                self.state,
+                self.progress
+            )
         } else {
             write!(f, "User {} is watching {} in quality {} stream quality {} on {}. Currently the play is {} and {}% is watched", self.user, self.title,self.quality, self.quality_profile, self.video_stream, self.state, self.progress)
         }
@@ -52,8 +61,7 @@ impl std::fmt::Display for SessionSummary {
 impl Tautulli {
     pub fn new(address: &str, api_key: &str) -> anyhow::Result<Tautulli> {
         let api_url = format!("{}/api/v2?apikey={}&cmd=", address, api_key);
-        let client = reqwest::Client::builder()
-            .build()?;
+        let client = reqwest::Client::builder().build()?;
         Ok(Tautulli {
             api_key: api_key.to_string(),
             address: address.to_string(),
@@ -63,10 +71,7 @@ impl Tautulli {
     }
     pub async fn get(&self, command: &str) -> anyhow::Result<tautulli::TautulliData> {
         let url = format!("{}{}", self.api_url, command);
-        let response = self.client
-            .get(&url)
-            .send()
-            .await?;
+        let response = self.client.get(&url).send().await?;
         //let response = response.text().await.expect("Failed to get response text");
         //let tautulli_response: tautulli::TautulliResponse = serde_json::from_str(&response).expect("Failed to parse JSON");
         let tautulli: tautulli::TautulliResponse = match response.json().await {
@@ -78,35 +83,29 @@ impl Tautulli {
         //Ok(tautulli_response.response.data)
         Ok(tautulli.response.data)
     }
-    pub async fn get_libraries(&self) -> anyhow::Result<Vec<tautulli::Library>>{
+    pub async fn get_libraries(&self) -> anyhow::Result<Vec<tautulli::Library>> {
         let get_libraries = self.get("get_libraries").await?;
         let libraries: Vec<tautulli::Library> = get_libraries.into();
         Ok(libraries)
     }
-    async fn get_ip_info(&self, ip: &str) -> anyhow::Result<TautulliLocation> { 
+    async fn get_ip_info(&self, ip: &str) -> anyhow::Result<TautulliLocation> {
         let service = Service::IpApi;
         match Locator::get(ip, service).await {
-            Ok(location) => {
-                Ok(TautulliLocation {
-                    city: location.city,
-                    country: location.country,
-                    ip_address: ip.to_string(), 
-                    latitude: location.latitude,
-                    longitude: location.longitude,
-                })
-            },
-            Err(_) => {
-                Ok(TautulliLocation {
-                    city: "Unknown".to_string(),
-                    country: "Unknown".to_string(),
-                    ip_address: ip.to_string(),
-                    latitude: "0.0".to_string(),
-                    longitude: "0.0".to_string(),
-                })
-            }
+            Ok(location) => Ok(TautulliLocation {
+                city: location.city,
+                country: location.country,
+                ip_address: ip.to_string(),
+                latitude: location.latitude,
+                longitude: location.longitude,
+            }),
+            Err(_) => Ok(TautulliLocation {
+                city: "Unknown".to_string(),
+                country: "Unknown".to_string(),
+                ip_address: ip.to_string(),
+                latitude: "0.0".to_string(),
+                longitude: "0.0".to_string(),
+            }),
         }
-
-        
     }
     pub async fn get_session_summary(&self) -> anyhow::Result<Vec<SessionSummary>> {
         let get_activities = self.get("get_activity").await?;
@@ -127,36 +126,35 @@ impl Tautulli {
                     }
                 }
             };
-            let session_summary =
-                if session.media_type == "episode" {
-                    SessionSummary {
-                        user: session.user.clone(),
-                        title: session.grandparent_title.clone(),
-                        state: session.state.clone(),
-                        progress: session.progress_percent.clone(),
-                        quality: session.video_full_resolution.clone(),
-                        quality_profile: session.quality_profile.clone(),
-                        video_stream: session.video_decision.clone(),
-                        media_type: session.media_type.clone(),
-                        season_number: Some(session.parent_media_index.clone()),
-                        episode_number: Some(session.media_index.clone()),
-                        location, 
-                    }
-                } else {
-                    SessionSummary {
-                        user: session.user.clone(),
-                        title: session.title.clone(),
-                        state: session.state.clone(),
-                        progress: session.progress_percent.clone(),
-                        quality: session.video_full_resolution.clone(),
-                        quality_profile: session.quality_profile.clone(),
-                        video_stream: session.video_decision.clone(),
-                        media_type: session.media_type.clone(),
-                        season_number: None,
-                        episode_number: None,
-                        location, 
-                    }
-                };
+            let session_summary = if session.media_type == "episode" {
+                SessionSummary {
+                    user: session.user.clone(),
+                    title: session.grandparent_title.clone(),
+                    state: session.state.clone(),
+                    progress: session.progress_percent.clone(),
+                    quality: session.video_full_resolution.clone(),
+                    quality_profile: session.quality_profile.clone(),
+                    video_stream: session.video_decision.clone(),
+                    media_type: session.media_type.clone(),
+                    season_number: Some(session.parent_media_index.clone()),
+                    episode_number: Some(session.media_index.clone()),
+                    location,
+                }
+            } else {
+                SessionSummary {
+                    user: session.user.clone(),
+                    title: session.title.clone(),
+                    state: session.state.clone(),
+                    progress: session.progress_percent.clone(),
+                    quality: session.video_full_resolution.clone(),
+                    quality_profile: session.quality_profile.clone(),
+                    video_stream: session.video_decision.clone(),
+                    media_type: session.media_type.clone(),
+                    season_number: None,
+                    episode_number: None,
+                    location,
+                }
+            };
             session_summaries.push(session_summary);
         }
         Ok(session_summaries)

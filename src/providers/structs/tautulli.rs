@@ -1,5 +1,5 @@
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use serde::{Serialize, Deserialize};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TautulliResponse {
@@ -28,7 +28,7 @@ impl Into<Activity> for TautulliData {
     }
 }
 impl Into<Vec<Library>> for TautulliData {
-    fn into(self) -> Vec<Library>{
+    fn into(self) -> Vec<Library> {
         match self {
             TautulliData::Libraries(libraries) => libraries,
             _ => panic!("TautulliData is not Libraries"),
@@ -289,7 +289,6 @@ pub struct Marker {
     pub final_field: Option<bool>,
 }
 
-
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LibraryResponse {
@@ -326,15 +325,27 @@ pub struct Library {
 impl std::fmt::Display for Library {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.section_type == "show" {
-            write!(f, "Library {} has {} shows {} seasons and {} episodes", self.section_name, self.count, self.parent_count.as_ref().unwrap(), self.child_count.as_ref().unwrap())
+            write!(
+                f,
+                "Library {} has {} shows {} seasons and {} episodes",
+                self.section_name,
+                self.count,
+                self.parent_count.as_ref().unwrap(),
+                self.child_count.as_ref().unwrap()
+            )
         } else if self.section_type == "movie" {
             write!(f, "Library {} has {} movies", self.section_name, self.count)
         } else if self.section_type == "artist" {
-            write!(f, "Library {} has {} artists {} albums {} tracks", self.section_name, self.count, self.parent_count.as_ref().unwrap(), self.child_count.as_ref().unwrap())
-        }
-        else {
+            write!(
+                f,
+                "Library {} has {} artists {} albums {} tracks",
+                self.section_name,
+                self.count,
+                self.parent_count.as_ref().unwrap(),
+                self.child_count.as_ref().unwrap()
+            )
+        } else {
             write!(f, "Library {} has {} items", self.section_name, self.count)
         }
     }
 }
-

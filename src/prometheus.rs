@@ -1,3 +1,4 @@
+use anyhow::Result;
 use log::debug;
 use prometheus_client::encoding::text::encode;
 use prometheus_client::encoding::EncodeLabelSet;
@@ -5,21 +6,18 @@ use prometheus_client::metrics::family::Family;
 use prometheus_client::metrics::gauge::Gauge;
 use prometheus_client::registry::Registry;
 use std::sync::atomic::AtomicU64;
-use anyhow::Result;
 
-use crate::providers::sonarr::SonarrEpisode;
-use crate::providers::tautulli::SessionSummary;
-use crate::providers::radarr::RadarrMovie;
-use crate::providers::structs::tautulli::Library;
 use crate::providers::overseerr::OverseerrRequest;
-
+use crate::providers::radarr::RadarrMovie;
+use crate::providers::sonarr::SonarrEpisode;
+use crate::providers::structs::tautulli::Library;
+use crate::providers::tautulli::SessionSummary;
 
 #[derive(PartialEq, Debug, Eq, Copy, Clone)]
 pub enum Format {
     Prometheus,
     OpenMetrics,
 }
-
 
 pub enum TaskResult {
     SonarrToday(Result<Vec<SonarrEpisode>>),
@@ -31,7 +29,6 @@ pub enum TaskResult {
     Overseerr(Result<Vec<OverseerrRequest>>),
     Default,
 }
-
 
 #[derive(Clone, Hash, Eq, PartialEq, EncodeLabelSet, Debug)]
 struct SonarrLabels {
@@ -99,11 +96,21 @@ pub fn format_metrics(task_result: Vec<TaskResult>) -> anyhow::Result<String> {
     let mut registry = Registry::with_prefix("homers");
     for task_result in task_result {
         match task_result {
-            TaskResult::SonarrToday(episodes) => format_sonarr_today_metrics(episodes?, &mut registry),
-            TaskResult::SonarrMissing(episodes) => format_sonarr_missing_metrics(episodes?, &mut registry),
-            TaskResult::TautulliSessionPercentage(sessions) => format_tautulli_session_percentage_metrics(sessions?, &mut registry),
-            TaskResult::TautulliSession(sessions) => format_tautulli_session_metrics(sessions?, &mut registry),
-            TaskResult::TautulliLibrary(libraries) => format_tautulli_library_metrics(libraries?, &mut registry),
+            TaskResult::SonarrToday(episodes) => {
+                format_sonarr_today_metrics(episodes?, &mut registry)
+            }
+            TaskResult::SonarrMissing(episodes) => {
+                format_sonarr_missing_metrics(episodes?, &mut registry)
+            }
+            TaskResult::TautulliSessionPercentage(sessions) => {
+                format_tautulli_session_percentage_metrics(sessions?, &mut registry)
+            }
+            TaskResult::TautulliSession(sessions) => {
+                format_tautulli_session_metrics(sessions?, &mut registry)
+            }
+            TaskResult::TautulliLibrary(libraries) => {
+                format_tautulli_library_metrics(libraries?, &mut registry)
+            }
             TaskResult::Radarr(movies) => format_radarr_metrics(movies?, &mut registry),
             TaskResult::Overseerr(overseerr) => format_overseerr_metrics(overseerr?, &mut registry),
             TaskResult::Default => return Err(anyhow::anyhow!("No task result")),
@@ -129,7 +136,7 @@ pub fn format_sonarr_today_metrics(episodes: Vec<SonarrEpisode>, registry: &mut 
             title: episode.title.clone(),
             serie: episode.serie.clone(),
         };
-        sonarr_episode 
+        sonarr_episode
             .get_or_create(&labels)
             .set(if episode.has_file { 1.0 } else { 0.0 });
     }
@@ -150,14 +157,18 @@ pub fn format_sonarr_missing_metrics(episodes: Vec<SonarrEpisode>, registry: &mu
             title: episode.title.clone(),
             serie: episode.serie.clone(),
         };
-        sonarr_episode 
+        sonarr_episode
             .get_or_create(&labels)
             .set(if episode.has_file { 1.0 } else { 0.0 });
     }
 }
-pub fn format_tautulli_session_percentage_metrics(sessions: Vec<SessionSummary>, registry: &mut Registry) { 
+pub fn format_tautulli_session_percentage_metrics(
+    sessions: Vec<SessionSummary>,
+    registry: &mut Registry,
+) {
     debug!("Formatting {sessions:?} as Prometheus");
-    let tautulli_session = Family::<TautulliSessionPercentageLabels, Gauge<f64, AtomicU64>>::default();
+    let tautulli_session =
+        Family::<TautulliSessionPercentageLabels, Gauge<f64, AtomicU64>>::default();
     registry.register(
         "tautulli_session_percentage",
         format!("Tautulli session progress"),
@@ -176,12 +187,12 @@ pub fn format_tautulli_session_percentage_metrics(sessions: Vec<SessionSummary>,
             video_stream: session.video_stream.clone(),
             city: session.location.city.clone(),
         };
-        tautulli_session 
+        tautulli_session
             .get_or_create(&labels)
             .set(session.progress.parse::<f64>().unwrap());
     }
 }
-pub fn format_tautulli_session_metrics(sessions: Vec<SessionSummary>, registry: &mut Registry) { 
+pub fn format_tautulli_session_metrics(sessions: Vec<SessionSummary>, registry: &mut Registry) {
     debug!("Formatting {sessions:?} as Prometheus");
     let tautulli_session = Family::<TautulliSessionLabels, Gauge<f64, AtomicU64>>::default();
     registry.register(
@@ -204,12 +215,10 @@ pub fn format_tautulli_session_metrics(sessions: Vec<SessionSummary>, registry: 
             longitude: session.location.longitude.clone(),
             latitude: session.location.latitude.clone(),
         };
-        tautulli_session 
-            .get_or_create(&labels)
-            .set(1.0);
+        tautulli_session.get_or_create(&labels).set(1.0);
     }
 }
-pub fn format_tautulli_library_metrics(libraries: Vec<Library>, registry: &mut Registry) { 
+pub fn format_tautulli_library_metrics(libraries: Vec<Library>, registry: &mut Registry) {
     debug!("Formatting {libraries:?} as Prometheus");
     let tautulli_library = Family::<TautulliLibraryLabels, Gauge<f64, AtomicU64>>::default();
     registry.register(
@@ -225,7 +234,7 @@ pub fn format_tautulli_library_metrics(libraries: Vec<Library>, registry: &mut R
             parent_count: library.parent_count.clone(),
             child_count: library.child_count.clone(),
         };
-        tautulli_library 
+        tautulli_library
             .get_or_create(&labels)
             .set(library.is_active as f64);
     }
@@ -246,7 +255,7 @@ pub fn format_radarr_metrics(movies: Vec<RadarrMovie>, registry: &mut Registry) 
             monitored: movie.monitored as i8,
             missing_available: movie.missing_available as i8,
         };
-        radarr_movie 
+        radarr_movie
             .get_or_create(&labels)
             .set(if movie.has_file { 1.0 } else { 0.0 });
     }

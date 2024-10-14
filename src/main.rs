@@ -1,11 +1,11 @@
-use rocket::{launch, Build, Rocket};
 use clap::{arg, command, Parser};
+use rocket::{launch, Build, Rocket};
 use std::path::PathBuf;
 
-mod http_server;
 mod config;
-mod providers;
+mod http_server;
 mod prometheus;
+mod providers;
 
 #[cfg(debug_assertions)]
 #[derive(Copy, Clone, Debug, Default)]

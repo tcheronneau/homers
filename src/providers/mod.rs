@@ -1,6 +1,6 @@
-pub mod sonarr;
-pub mod tautulli;
-pub mod radarr;
 pub mod overseerr;
-pub mod unifi;
+pub mod radarr;
+pub mod sonarr;
 pub mod structs;
+pub mod tautulli;
+pub mod unifi;

@@ -1,8 +1,7 @@
 use reqwest::header;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 use crate::providers::structs::radarr::Movie;
-
 
 #[derive(Debug, Deserialize, Clone, Serialize)]
 pub struct RadarrMovie {
@@ -16,7 +15,11 @@ pub struct RadarrMovie {
 }
 impl std::fmt::Display for RadarrMovie {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}: has_file: {}, monitored: {}, is_available: {}", self.title, self.has_file, self.monitored, self.is_available)
+        write!(
+            f,
+            "{}: has_file: {}, monitored: {}, is_available: {}",
+            self.title, self.has_file, self.monitored, self.is_available
+        )
     }
 }
 
@@ -34,7 +37,10 @@ impl Radarr {
         let mut header_api_key = header::HeaderValue::from_str(&api_key).unwrap();
         header_api_key.set_sensitive(true);
         headers.insert("X-Api-Key", header_api_key);
-        headers.insert("Accept", header::HeaderValue::from_static("application/json"));
+        headers.insert(
+            "Accept",
+            header::HeaderValue::from_static("application/json"),
+        );
         let client = reqwest::Client::builder()
             .default_headers(headers)
             .build()?;
@@ -46,10 +52,7 @@ impl Radarr {
     }
     async fn get_movies(&self) -> anyhow::Result<Vec<Movie>> {
         let url = format!("{}/movie", self.address);
-        let response = self.client
-            .get(&url)
-            .send()
-            .await?;
+        let response = self.client.get(&url).send().await?;
         let movies: Vec<Movie> = match response.json().await {
             Ok(movies) => movies,
             Err(e) => {

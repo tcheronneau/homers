@@ -1,23 +1,20 @@
-use rocket::{get, routes, Build, Responder, Rocket, State};
+use anyhow::Result;
+use log::{error, info};
 use rocket::http::{Accept, ContentType, Status};
 use rocket::tokio::task;
 use rocket::tokio::task::JoinSet;
-use tokio::task::JoinError;
-use log::{error, info};
+use rocket::{get, routes, Build, Responder, Rocket, State};
 use std::process::exit;
-use anyhow::Result;
+use tokio::task::JoinError;
 
-
-use crate::prometheus::{Format, TaskResult, format_metrics};
-use crate::config::{Config, get_tasks, Task};
+use crate::config::{get_tasks, Config, Task};
+use crate::prometheus::{format_metrics, Format, TaskResult};
 
 #[derive(Responder, Debug, PartialEq, Eq)]
 #[response(content_type = "text/plain; charset=utf-8")]
 pub struct MetricsError {
     response: (Status, String),
 }
-
-
 
 #[derive(Responder, Debug, PartialEq, Eq)]
 #[response()]
@@ -49,73 +46,65 @@ pub async fn configure_rocket(config: Config) -> Rocket<Build> {
     rocket::custom(config.http)
         .manage(config.sonarr)
         .manage(tasks)
-        .mount("/", routes![index,metrics])
+        .mount("/", routes![index, metrics])
 }
 
 #[get("/")]
 #[allow(clippy::needless_pass_by_value)]
-fn index(
-) -> Result<String,MetricsError> {
-    let response = "Hello Homers".to_string(); 
+fn index() -> Result<String, MetricsError> {
+    let response = "Hello Homers".to_string();
     Ok(response)
 }
-
 
 #[get("/metrics")]
 async fn metrics(
     unscheduled_tasks: &State<Vec<Task>>,
     _accept: &Accept,
-) -> Result<MetricsResponse,MetricsError> {
+) -> Result<MetricsResponse, MetricsError> {
     Ok(serve_metrics(Format::Prometheus, unscheduled_tasks).await)
 }
-async fn process_task(task: Task) -> Result<TaskResult, JoinError>{
-    info!(
-        "Requesting data for {:?}",
-        &task,
-    );
+async fn process_task(task: Task) -> Result<TaskResult, JoinError> {
+    info!("Requesting data for {:?}", &task,);
     match task {
         Task::SonarrToday(sonarr) => {
             let result = sonarr.get_today_shows().await;
             Ok(TaskResult::SonarrToday(result))
-        },
+        }
         Task::SonarrMissing(sonarr) => {
             let result = sonarr.get_last_week_missing_shows().await;
             Ok(TaskResult::SonarrMissing(result))
-        },
+        }
         Task::TautulliSessionPercentage(tautulli) => {
             let result = tautulli.get_session_summary().await;
             Ok(TaskResult::TautulliSessionPercentage(result))
-        },
+        }
         Task::TautulliSession(tautulli) => {
             let result = tautulli.get_session_summary().await;
             Ok(TaskResult::TautulliSession(result))
-        },
+        }
         Task::TautulliLibrary(tautulli) => {
             let result = tautulli.get_libraries().await;
             Ok(TaskResult::TautulliLibrary(result))
-        },
+        }
         Task::Radarr(radarr) => {
             let result = radarr.get_radarr_movies().await;
             Ok(TaskResult::Radarr(result))
-        },
+        }
         Task::Overseerr(overseerr) => {
             let result = overseerr.get_overseerr_requests().await;
             Ok(TaskResult::Overseerr(result))
-        },
+        }
         Task::Default => Ok(TaskResult::Default),
     }
 }
 
-async fn serve_metrics(
-    format: Format,
-    unscheduled_tasks: &State<Vec<Task>>,
-) -> MetricsResponse {
+async fn serve_metrics(format: Format, unscheduled_tasks: &State<Vec<Task>>) -> MetricsResponse {
     let mut join_set = JoinSet::new();
-    for task in unscheduled_tasks.iter().cloned(){
+    for task in unscheduled_tasks.iter().cloned() {
         join_set.spawn(process_task(task));
     }
 
-    wait_for_metrics(format,join_set).await.map_or_else(
+    wait_for_metrics(format, join_set).await.map_or_else(
         |e| {
             error!("General error while fetching providers data: {e}");
             MetricsResponse::new(
@@ -152,14 +141,12 @@ const fn get_content_type_params(version: &str) -> [(&str, &str); 2] {
 
 fn get_openmetrics_content_type() -> ContentType {
     ContentType::new("application", "openmetrics-text")
-
         .with_params(get_content_type_params("1.0.0"))
 }
 
 fn get_text_plain_content_type() -> ContentType {
     ContentType::new("text", "plain").with_params(get_content_type_params("0.0.4"))
 }
-
 
 pub fn exit_if_handle_fatal<E, R>(error: E) -> R
 where
@@ -169,4 +156,3 @@ where
 
     exit(1)
 }
-

@@ -1,16 +1,19 @@
-use rocket::figment::providers::Serialized;
-use figment::{Figment, providers::{Format, Toml, Env}};
-use std::path::PathBuf;
+use figment::{
+    providers::{Env, Format, Toml},
+    Figment,
+};
 use log::{debug, info, Level};
-use serde::Deserialize;
+use rocket::figment::providers::Serialized;
 use rocket::serde::Serialize;
+use serde::Deserialize;
+use std::path::PathBuf;
 
-use crate::providers::tautulli::Tautulli;
-use crate::providers::sonarr::Sonarr;
-use crate::providers::radarr::Radarr;
 use crate::providers::overseerr::Overseerr;
+use crate::providers::radarr::Radarr;
+use crate::providers::sonarr::Sonarr;
+use crate::providers::tautulli::Tautulli;
 
-#[derive(Debug,Deserialize, Clone, Serialize)]
+#[derive(Debug, Deserialize, Clone, Serialize)]
 pub struct Config {
     pub tautulli: Option<Tautulli>,
     pub sonarr: Option<Sonarr>,
@@ -21,8 +24,8 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            tautulli: None, 
-            sonarr: None, 
+            tautulli: None,
+            sonarr: None,
             radarr: None,
             overseerr: None,
             http: rocket::Config::default(),
@@ -41,7 +44,6 @@ pub enum Task {
     TautulliLibrary(Tautulli),
     Default,
 }
-
 
 pub fn read(config_file: PathBuf, log_level: Level) -> anyhow::Result<Config> {
     info!("Reading config file {config_file:?}");
