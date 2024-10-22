@@ -147,7 +147,7 @@ impl Sonarr {
     }
 
     pub async fn get_last_week_missing_shows(&self) -> Vec<SonarrEpisode> {
-        let calendars = match self.get_today_calendars().await {
+        let calendars = match self.get_last_seven_days_calendars().await {
             Ok(calendars) => calendars,
             Err(e) => {
                 error!("Failed to get today's shows: {:?}", e);
