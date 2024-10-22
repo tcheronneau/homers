@@ -83,10 +83,16 @@ impl Tautulli {
         //Ok(tautulli_response.response.data)
         Ok(tautulli.response.data)
     }
-    pub async fn get_libraries(&self) -> anyhow::Result<Vec<tautulli::Library>> {
-        let get_libraries = self.get("get_libraries").await?;
+    pub async fn get_libraries(&self) -> Vec<tautulli::Library> {
+        let get_libraries = match self.get("get_libraries").await {
+            Ok(libraries) => libraries,
+            Err(e) => {
+                error!("Failed to get libraries: {}", e);
+                return Vec::new();
+            }
+        };
         let libraries: Vec<tautulli::Library> = get_libraries.into();
-        Ok(libraries)
+        libraries
     }
     async fn get_ip_info(&self, ip: &str) -> anyhow::Result<TautulliLocation> {
         let service = Service::IpApi;
@@ -107,10 +113,15 @@ impl Tautulli {
             }),
         }
     }
-    pub async fn get_session_summary(&self) -> anyhow::Result<Vec<SessionSummary>> {
-        let get_activities = self.get("get_activity").await?;
+    pub async fn get_session_summary(&self) -> Vec<SessionSummary> {
+        let get_activities = match self.get("get_activity").await {
+            Ok(activities) => activities,
+            Err(e) => {
+                error!("Failed to get activities: {}", e);
+                return Vec::new();
+            }
+        };
         let activity: tautulli::Activity = get_activities.into();
-        //let session_summaries: Vec<SessionSummary> = activity.sessions.iter().map(|session| {
         let mut session_summaries = Vec::new();
         for session in &activity.sessions {
             let location = match self.get_ip_info(&session.ip_address).await {
@@ -157,6 +168,6 @@ impl Tautulli {
             };
             session_summaries.push(session_summary);
         }
-        Ok(session_summaries)
+        session_summaries
     }
 }

@@ -1,6 +1,6 @@
 use anyhow::Context;
 use chrono::{format::strftime::StrftimeItems, Duration, Local};
-use log::debug;
+use log::{debug, error};
 use reqwest::header;
 use serde::{Deserialize, Serialize};
 
@@ -118,13 +118,19 @@ impl Sonarr {
         Ok(calendars)
     }
 
-    pub async fn get_today_shows(&self) -> anyhow::Result<Vec<SonarrEpisode>> {
-        let calendars = self.get_today_calendars().await?;
+    pub async fn get_today_shows(&self) -> Vec<SonarrEpisode> {
+        let calendars = match self.get_today_calendars().await {
+            Ok(calendars) => calendars,
+            Err(e) => {
+                error!("Failed to get today's shows: {:?}", e);
+                return Vec::new();
+            }
+        };
         calendars
-            .iter()
+            .into_iter()
             .map(|calendar| {
                 debug!("{:?}", calendar);
-                Ok(SonarrEpisode {
+                SonarrEpisode {
                     sxe: format!(
                         "S{:02}E{:02}",
                         calendar.season_number, calendar.episode_number
@@ -135,18 +141,24 @@ impl Sonarr {
                     serie: calendar.series.title.clone(),
                     air_date: calendar.air_date.clone(),
                     has_file: calendar.has_file,
-                })
+                }
             })
             .collect()
     }
 
-    pub async fn get_last_week_missing_shows(&self) -> anyhow::Result<Vec<SonarrEpisode>> {
-        let calendars = self.get_last_seven_days_calendars().await?;
+    pub async fn get_last_week_missing_shows(&self) -> Vec<SonarrEpisode> {
+        let calendars = match self.get_today_calendars().await {
+            Ok(calendars) => calendars,
+            Err(e) => {
+                error!("Failed to get today's shows: {:?}", e);
+                return Vec::new();
+            }
+        };
         calendars
             .iter()
             .filter_map(|calendar| {
                 if !calendar.has_file {
-                    Some(Ok(SonarrEpisode {
+                    Some(SonarrEpisode {
                         sxe: format!(
                             "S{:02}E{:02}",
                             calendar.season_number, calendar.episode_number
@@ -157,7 +169,7 @@ impl Sonarr {
                         serie: calendar.series.title.clone(),
                         air_date: calendar.air_date.clone(),
                         has_file: calendar.has_file,
-                    }))
+                    })
                 } else {
                     None
                 }

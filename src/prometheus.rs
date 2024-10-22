@@ -20,13 +20,13 @@ pub enum Format {
 }
 
 pub enum TaskResult {
-    SonarrToday(Result<Vec<SonarrEpisode>>),
-    SonarrMissing(Result<Vec<SonarrEpisode>>),
-    TautulliSessionPercentage(Result<Vec<SessionSummary>>),
-    TautulliSession(Result<Vec<SessionSummary>>),
-    TautulliLibrary(Result<Vec<Library>>),
-    Radarr(Result<Vec<RadarrMovie>>),
-    Overseerr(Result<Vec<OverseerrRequest>>),
+    SonarrToday(Vec<SonarrEpisode>),
+    SonarrMissing(Vec<SonarrEpisode>),
+    TautulliSessionPercentage(Vec<SessionSummary>),
+    TautulliSession(Vec<SessionSummary>),
+    TautulliLibrary(Vec<Library>),
+    Radarr(Vec<RadarrMovie>),
+    Overseerr(Vec<OverseerrRequest>),
     Default,
 }
 
@@ -97,22 +97,22 @@ pub fn format_metrics(task_result: Vec<TaskResult>) -> anyhow::Result<String> {
     for task_result in task_result {
         match task_result {
             TaskResult::SonarrToday(episodes) => {
-                format_sonarr_today_metrics(episodes?, &mut registry)
+                format_sonarr_today_metrics(episodes, &mut registry)
             }
             TaskResult::SonarrMissing(episodes) => {
-                format_sonarr_missing_metrics(episodes?, &mut registry)
+                format_sonarr_missing_metrics(episodes, &mut registry)
             }
             TaskResult::TautulliSessionPercentage(sessions) => {
-                format_tautulli_session_percentage_metrics(sessions?, &mut registry)
+                format_tautulli_session_percentage_metrics(sessions, &mut registry)
             }
             TaskResult::TautulliSession(sessions) => {
-                format_tautulli_session_metrics(sessions?, &mut registry)
+                format_tautulli_session_metrics(sessions, &mut registry)
             }
             TaskResult::TautulliLibrary(libraries) => {
-                format_tautulli_library_metrics(libraries?, &mut registry)
+                format_tautulli_library_metrics(libraries, &mut registry)
             }
-            TaskResult::Radarr(movies) => format_radarr_metrics(movies?, &mut registry),
-            TaskResult::Overseerr(overseerr) => format_overseerr_metrics(overseerr?, &mut registry),
+            TaskResult::Radarr(movies) => format_radarr_metrics(movies, &mut registry),
+            TaskResult::Overseerr(overseerr) => format_overseerr_metrics(overseerr, &mut registry),
             TaskResult::Default => return Err(anyhow::anyhow!("No task result")),
         }
     }

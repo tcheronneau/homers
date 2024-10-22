@@ -1,3 +1,4 @@
+use log::error;
 use reqwest::header;
 use serde::{Deserialize, Serialize};
 
@@ -61,8 +62,14 @@ impl Radarr {
         };
         Ok(movies)
     }
-    pub async fn get_radarr_movies(&self) -> anyhow::Result<Vec<RadarrMovie>> {
-        let movies = self.get_movies().await?;
+    pub async fn get_radarr_movies(&self) -> Vec<RadarrMovie> {
+        let movies = match self.get_movies().await {
+            Ok(movies) => movies,
+            Err(e) => {
+                error!("Failed to get radarr movies: {:?}", e);
+                Vec::new()
+            }
+        };
         let mut radarr_movies = Vec::new();
         for movie in movies {
             radarr_movies.push(RadarrMovie {
@@ -73,7 +80,7 @@ impl Radarr {
                 missing_available: self.set_missing_movies(&movie),
             });
         }
-        Ok(radarr_movies)
+        radarr_movies
     }
     fn set_missing_movies(&self, movie: &Movie) -> bool {
         if !movie.has_file && movie.is_available {

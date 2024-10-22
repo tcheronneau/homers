@@ -1,4 +1,5 @@
 use anyhow::Context;
+use log::error;
 use reqwest::header;
 use serde::{Deserialize, Serialize};
 
@@ -64,25 +65,44 @@ impl Overseerr {
         Ok(requests.results)
         //Ok(Vec::new())
     }
-    pub async fn get_overseerr_requests(&self) -> anyhow::Result<Vec<OverseerrRequest>> {
-        let requests = self.get_requests().await?;
+    pub async fn get_overseerr_requests(&self) -> Vec<OverseerrRequest> {
+        let requests = match self.get_requests().await {
+            Ok(requests) => requests,
+            Err(e) => {
+                error!("Failed to get overseerr requests: {:?}", e);
+                Vec::new()
+            }
+        };
         let mut overseerr_requests = Vec::new();
         for request in requests {
-            let media_title = self
+            let media_title = match self
                 .get_media_title(&request.media.media_type, request.media.tmdb_id)
-                .await?;
+                .await
+            {
+                Ok(title) => title,
+                Err(e) => {
+                    error!("Failed to get media title: {:?}", e);
+                    "Unknown".to_string()
+                }
+            };
             let overseerr_request = OverseerrRequest {
                 media_type: request.media.media_type.clone(),
                 media_id: request.media.id,
                 status: request.status,
-                requested_by: self.get_username(request.clone())?,
+                requested_by: match self.get_username(request.clone()) {
+                    Ok(username) => username,
+                    Err(e) => {
+                        error!("Failed to get username: {:?}", e);
+                        "Unknown".to_string()
+                    }
+                },
                 media_status: request.media.status,
                 media_title,
                 requested_at: request.created_at,
             };
             overseerr_requests.push(overseerr_request);
         }
-        Ok(overseerr_requests)
+        overseerr_requests
     }
     fn get_username(&self, request: overseerr::Result) -> anyhow::Result<String> {
         match request.requested_by.username {
