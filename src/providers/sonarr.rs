@@ -1,4 +1,3 @@
-use anyhow::Context;
 use chrono::{format::strftime::StrftimeItems, Duration, Local};
 use log::{debug, error};
 use reqwest::header;
@@ -13,6 +12,43 @@ pub struct Sonarr {
     pub api_key: String,
     #[serde(skip)]
     client: reqwest::Client,
+}
+
+#[derive(Debug)]
+enum SonarrErrorKind {
+    GetError,
+    ParseError,
+}
+#[derive(Debug)]
+struct SonarrError {
+    kind: SonarrErrorKind,
+    message: String,
+}
+impl SonarrError {
+    pub fn new(kind: SonarrErrorKind, message: &str) -> SonarrError {
+        SonarrError {
+            kind,
+            message: message.to_string(),
+        }
+    }
+}
+impl std::fmt::Display for SonarrError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.kind {
+            SonarrErrorKind::GetError => write!(
+                f,
+                "There was an error while getting information from sonarr : {}",
+                self.message
+            ),
+            SonarrErrorKind::ParseError => {
+                write!(
+                    f,
+                    "There was an error while parsing sonarr data: {}",
+                    self.message
+                )
+            }
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, Clone, Serialize)]
@@ -39,8 +75,6 @@ impl std::fmt::Display for SonarrEpisode {
 impl Sonarr {
     pub fn new(address: &str, api_key: &str) -> anyhow::Result<Sonarr> {
         let mut headers = header::HeaderMap::new();
-        //initialize_api_key(api_key);
-        //let mut header_api_key = header::HeaderValue::from_str(&*get_api_key()).unwrap();
         let mut header_api_key = header::HeaderValue::from_str(api_key).unwrap();
         header_api_key.set_sensitive(true);
         headers.insert("X-Api-Key", header_api_key);
@@ -53,7 +87,7 @@ impl Sonarr {
             client,
         })
     }
-    async fn get_last_seven_days_calendars(&self) -> anyhow::Result<Vec<sonarr::Calendar>> {
+    async fn get_last_seven_days_calendars(&self) -> Result<Vec<sonarr::Calendar>, SonarrError> {
         let url = format!("{}/api/v3/calendar", self.address);
         let local_datetime = Local::now();
         let date_end = local_datetime.date_naive();
@@ -68,22 +102,27 @@ impl Sonarr {
             ("includeSeries", &true.to_string()),
         ];
         debug!("Params: {:?}", params);
-        let response = self
-            .client
-            .get(&url)
-            .query(&params)
-            .send()
-            .await
-            .expect("Failed to get sonarr calendar");
+        let response = match self.client.get(&url).query(&params).send().await {
+            Ok(response) => response,
+            Err(e) => {
+                return Err(SonarrError::new(
+                    SonarrErrorKind::GetError,
+                    &format!("{:?}", e),
+                ));
+            }
+        };
         let calendars = match response.json::<Vec<sonarr::Calendar>>().await {
             Ok(calendars) => calendars,
             Err(e) => {
-                anyhow::bail!("Failed to parse sonarr calendar: {:?}", e);
+                return Err(SonarrError::new(
+                    SonarrErrorKind::ParseError,
+                    &format!("{:?}", e),
+                ));
             }
         };
         Ok(calendars)
     }
-    async fn get_today_calendars(&self) -> anyhow::Result<Vec<sonarr::Calendar>> {
+    async fn get_today_calendars(&self) -> Result<Vec<sonarr::Calendar>, SonarrError> {
         let url = format!("{}/api/v3/calendar", self.address);
         let local_datetime = Local::now();
 
@@ -102,17 +141,22 @@ impl Sonarr {
             ("end", &formatted_date_end),
             ("includeSeries", &true.to_string()),
         ];
-        let response = self
-            .client
-            .get(url)
-            .query(&params)
-            .send()
-            .await
-            .context("Failed to get sonarr calendar")?;
+        let response = match self.client.get(url).query(&params).send().await {
+            Ok(response) => response,
+            Err(e) => {
+                return Err(SonarrError::new(
+                    SonarrErrorKind::GetError,
+                    &format!("{:?}", e),
+                ));
+            }
+        };
         let calendars = match response.json::<Vec<sonarr::Calendar>>().await {
             Ok(calendars) => calendars,
             Err(e) => {
-                anyhow::bail!("Failed to parse sonarr calendar: {:?}", e);
+                return Err(SonarrError::new(
+                    SonarrErrorKind::ParseError,
+                    &format!("{:?}", e),
+                ));
             }
         };
         Ok(calendars)
