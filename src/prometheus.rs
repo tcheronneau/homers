@@ -1,4 +1,3 @@
-use anyhow::Result;
 use log::debug;
 use prometheus_client::encoding::text::encode;
 use prometheus_client::encoding::EncodeLabelSet;
