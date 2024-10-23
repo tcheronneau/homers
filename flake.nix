@@ -6,7 +6,7 @@
   outputs = { self, nixpkgs, flake-utils }:
   let 
     name = "homers";
-    version = "0.3.3";
+    version = "0.4.1";
   in 
   flake-utils.lib.eachDefaultSystem (system:
     with nixpkgs.legacyPackages.${system}; {
