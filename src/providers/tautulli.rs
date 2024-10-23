@@ -4,6 +4,7 @@ use reqwest;
 use serde::{Deserialize, Serialize};
 
 use crate::providers::structs::tautulli;
+use crate::providers::{Provider, ProviderError, ProviderErrorKind};
 
 #[derive(Debug, Deserialize, Clone, Serialize)]
 pub struct Tautulli {
@@ -59,7 +60,7 @@ impl std::fmt::Display for SessionSummary {
 }
 
 impl Tautulli {
-    pub fn new(address: &str, api_key: &str) -> anyhow::Result<Tautulli> {
+    pub fn new(address: &str, api_key: &str) -> Result<Tautulli, ProviderError> {
         let api_url = format!("{}/api/v2?apikey={}&cmd=", address, api_key);
         let client = reqwest::Client::builder().build()?;
         Ok(Tautulli {
@@ -69,18 +70,28 @@ impl Tautulli {
             client,
         })
     }
-    pub async fn get(&self, command: &str) -> anyhow::Result<tautulli::TautulliData> {
+    pub async fn get(&self, command: &str) -> Result<tautulli::TautulliData, ProviderError> {
         let url = format!("{}{}", self.api_url, command);
-        let response = self.client.get(&url).send().await?;
-        //let response = response.text().await.expect("Failed to get response text");
-        //let tautulli_response: tautulli::TautulliResponse = serde_json::from_str(&response).expect("Failed to parse JSON");
+        let response = match self.client.get(&url).send().await {
+            Ok(response) => response,
+            Err(e) => {
+                return Err(ProviderError::new(
+                    Provider::Tautulli,
+                    ProviderErrorKind::GetError,
+                    &format!("{:?}", e),
+                ));
+            }
+        };
         let tautulli: tautulli::TautulliResponse = match response.json().await {
             Ok(tautulli) => tautulli,
             Err(e) => {
-                anyhow::bail!("Failed to parse tautulli get response: {:?}", e);
+                return Err(ProviderError::new(
+                    Provider::Tautulli,
+                    ProviderErrorKind::ParseError,
+                    &format!("{:?}", e),
+                ));
             }
         };
-        //Ok(tautulli_response.response.data)
         Ok(tautulli.response.data)
     }
     pub async fn get_libraries(&self) -> Vec<tautulli::Library> {
@@ -94,7 +105,7 @@ impl Tautulli {
         let libraries: Vec<tautulli::Library> = get_libraries.into();
         libraries
     }
-    async fn get_ip_info(&self, ip: &str) -> anyhow::Result<TautulliLocation> {
+    async fn get_ip_info(&self, ip: &str) -> Result<TautulliLocation, ProviderError> {
         let service = Service::IpApi;
         match Locator::get(ip, service).await {
             Ok(location) => Ok(TautulliLocation {

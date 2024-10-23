@@ -3,6 +3,7 @@ use reqwest::header;
 use serde::{Deserialize, Serialize};
 
 use crate::providers::structs::radarr::Movie;
+use crate::providers::{Provider, ProviderError, ProviderErrorKind};
 
 #[derive(Debug, Deserialize, Clone, Serialize)]
 pub struct RadarrMovie {
@@ -33,7 +34,7 @@ pub struct Radarr {
     client: reqwest::Client,
 }
 impl Radarr {
-    pub fn new(address: &str, api_key: &str) -> anyhow::Result<Radarr> {
+    pub fn new(address: &str, api_key: &str) -> Result<Radarr, ProviderError> {
         let mut headers = header::HeaderMap::new();
         let mut header_api_key = header::HeaderValue::from_str(&api_key).unwrap();
         header_api_key.set_sensitive(true);
@@ -51,13 +52,26 @@ impl Radarr {
             client,
         })
     }
-    async fn get_movies(&self) -> anyhow::Result<Vec<Movie>> {
+    async fn get_movies(&self) -> Result<Vec<Movie>, ProviderError> {
         let url = format!("{}/movie", self.address);
-        let response = self.client.get(&url).send().await?;
+        let response = match self.client.get(&url).send().await {
+            Ok(response) => response,
+            Err(e) => {
+                return Err(ProviderError::new(
+                    Provider::Radarr,
+                    ProviderErrorKind::GetError,
+                    &format!("{:?}", e),
+                ));
+            }
+        };
         let movies: Vec<Movie> = match response.json().await {
             Ok(movies) => movies,
             Err(e) => {
-                anyhow::bail!("Failed to parse radarr get_movies response: {:?}", e);
+                return Err(ProviderError::new(
+                    Provider::Radarr,
+                    ProviderErrorKind::ParseError,
+                    &format!("{:?}", e),
+                ));
             }
         };
         Ok(movies)

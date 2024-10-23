@@ -4,6 +4,7 @@ use reqwest::header;
 use serde::{Deserialize, Serialize};
 
 use crate::providers::structs::sonarr;
+use crate::providers::{Provider, ProviderError, ProviderErrorKind};
 
 #[derive(Debug, Deserialize, Clone, Serialize)]
 pub struct Sonarr {
@@ -12,43 +13,6 @@ pub struct Sonarr {
     pub api_key: String,
     #[serde(skip)]
     client: reqwest::Client,
-}
-
-#[derive(Debug)]
-enum SonarrErrorKind {
-    GetError,
-    ParseError,
-}
-#[derive(Debug)]
-struct SonarrError {
-    kind: SonarrErrorKind,
-    message: String,
-}
-impl SonarrError {
-    pub fn new(kind: SonarrErrorKind, message: &str) -> SonarrError {
-        SonarrError {
-            kind,
-            message: message.to_string(),
-        }
-    }
-}
-impl std::fmt::Display for SonarrError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self.kind {
-            SonarrErrorKind::GetError => write!(
-                f,
-                "There was an error while getting information from sonarr : {}",
-                self.message
-            ),
-            SonarrErrorKind::ParseError => {
-                write!(
-                    f,
-                    "There was an error while parsing sonarr data: {}",
-                    self.message
-                )
-            }
-        }
-    }
 }
 
 #[derive(Debug, Deserialize, Clone, Serialize)]
@@ -73,7 +37,7 @@ impl std::fmt::Display for SonarrEpisode {
 }
 
 impl Sonarr {
-    pub fn new(address: &str, api_key: &str) -> anyhow::Result<Sonarr> {
+    pub fn new(address: &str, api_key: &str) -> Result<Sonarr, ProviderError> {
         let mut headers = header::HeaderMap::new();
         let mut header_api_key = header::HeaderValue::from_str(api_key).unwrap();
         header_api_key.set_sensitive(true);
@@ -87,7 +51,7 @@ impl Sonarr {
             client,
         })
     }
-    async fn get_last_seven_days_calendars(&self) -> Result<Vec<sonarr::Calendar>, SonarrError> {
+    async fn get_last_seven_days_calendars(&self) -> Result<Vec<sonarr::Calendar>, ProviderError> {
         let url = format!("{}/api/v3/calendar", self.address);
         let local_datetime = Local::now();
         let date_end = local_datetime.date_naive();
@@ -105,8 +69,9 @@ impl Sonarr {
         let response = match self.client.get(&url).query(&params).send().await {
             Ok(response) => response,
             Err(e) => {
-                return Err(SonarrError::new(
-                    SonarrErrorKind::GetError,
+                return Err(ProviderError::new(
+                    Provider::Sonarr,
+                    ProviderErrorKind::GetError,
                     &format!("{:?}", e),
                 ));
             }
@@ -114,15 +79,16 @@ impl Sonarr {
         let calendars = match response.json::<Vec<sonarr::Calendar>>().await {
             Ok(calendars) => calendars,
             Err(e) => {
-                return Err(SonarrError::new(
-                    SonarrErrorKind::ParseError,
+                return Err(ProviderError::new(
+                    Provider::Sonarr,
+                    ProviderErrorKind::ParseError,
                     &format!("{:?}", e),
                 ));
             }
         };
         Ok(calendars)
     }
-    async fn get_today_calendars(&self) -> Result<Vec<sonarr::Calendar>, SonarrError> {
+    async fn get_today_calendars(&self) -> Result<Vec<sonarr::Calendar>, ProviderError> {
         let url = format!("{}/api/v3/calendar", self.address);
         let local_datetime = Local::now();
 
@@ -144,8 +110,9 @@ impl Sonarr {
         let response = match self.client.get(url).query(&params).send().await {
             Ok(response) => response,
             Err(e) => {
-                return Err(SonarrError::new(
-                    SonarrErrorKind::GetError,
+                return Err(ProviderError::new(
+                    Provider::Sonarr,
+                    ProviderErrorKind::GetError,
                     &format!("{:?}", e),
                 ));
             }
@@ -153,8 +120,9 @@ impl Sonarr {
         let calendars = match response.json::<Vec<sonarr::Calendar>>().await {
             Ok(calendars) => calendars,
             Err(e) => {
-                return Err(SonarrError::new(
-                    SonarrErrorKind::ParseError,
+                return Err(ProviderError::new(
+                    Provider::Sonarr,
+                    ProviderErrorKind::ParseError,
                     &format!("{:?}", e),
                 ));
             }
@@ -166,7 +134,7 @@ impl Sonarr {
         let calendars = match self.get_today_calendars().await {
             Ok(calendars) => calendars,
             Err(e) => {
-                error!("Failed to get today's shows: {:?}", e);
+                error!("Failed to get today's shows: {}", e);
                 return Vec::new();
             }
         };
@@ -194,7 +162,7 @@ impl Sonarr {
         let calendars = match self.get_last_seven_days_calendars().await {
             Ok(calendars) => calendars,
             Err(e) => {
-                error!("Failed to get today's shows: {:?}", e);
+                error!("Failed to get today's shows: {}", e);
                 return Vec::new();
             }
         };

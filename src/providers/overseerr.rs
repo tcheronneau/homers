@@ -4,6 +4,7 @@ use reqwest::header;
 use serde::{Deserialize, Serialize};
 
 use crate::providers::structs::overseerr;
+use crate::providers::{Provider, ProviderError, ProviderErrorKind};
 
 #[derive(Debug, Deserialize, Clone, Serialize)]
 pub struct OverseerrRequest {
@@ -26,7 +27,7 @@ pub struct Overseerr {
     client: reqwest::Client,
 }
 impl Overseerr {
-    pub fn new(address: &str, api_key: &str, requests: i64) -> anyhow::Result<Overseerr> {
+    pub fn new(address: &str, api_key: &str, requests: i64) -> Result<Overseerr, ProviderError> {
         let mut headers = header::HeaderMap::new();
         let mut header_api_key = header::HeaderValue::from_str(api_key).unwrap();
         header_api_key.set_sensitive(true);
@@ -37,8 +38,7 @@ impl Overseerr {
         );
         let client = reqwest::Client::builder()
             .default_headers(headers)
-            .build()
-            .context("Failed to create Overseerr client ")?;
+            .build()?;
         Ok(Overseerr {
             address: address.to_string(),
             api_key: api_key.to_string(),
@@ -46,20 +46,33 @@ impl Overseerr {
             client,
         })
     }
-    async fn get_requests(&self) -> anyhow::Result<Vec<overseerr::Result>> {
+    async fn get_requests(&self) -> Result<Vec<overseerr::Result>, ProviderError> {
         let url = format!("{}/api/v1/request", self.address);
-        let response = self
+        let response = match self
             .client
             .get(&url)
             .query(&[("sort", "added")])
             .query(&[("take", self.requests.unwrap().to_string())])
             .send()
             .await
-            .context("Failed to get requests")?;
+        {
+            Ok(response) => response,
+            Err(e) => {
+                return Err(ProviderError::new(
+                    Provider::Overseerr,
+                    ProviderErrorKind::GetError,
+                    &format!("{:?}", e),
+                ));
+            }
+        };
         let requests = match response.json::<overseerr::Request>().await {
             Ok(requests) => requests,
             Err(e) => {
-                anyhow::bail!("Failed to parse overseerr get_requests response: {:?}", e);
+                return Err(ProviderError::new(
+                    Provider::Overseerr,
+                    ProviderErrorKind::ParseError,
+                    &format!("{:?}", e),
+                ));
             }
         };
         Ok(requests.results)
@@ -113,25 +126,52 @@ impl Overseerr {
             },
         }
     }
-    async fn get_media_title(&self, media_type: &str, media_id: i64) -> anyhow::Result<String> {
+    async fn get_media_title(
+        &self,
+        media_type: &str,
+        media_id: i64,
+    ) -> Result<String, ProviderError> {
         let url = format!("{}/api/v1/{}/{}", self.address, media_type, media_id);
-        let response = self
-            .client
-            .get(&url)
-            .send()
-            .await
-            .context("Failed to get media title")?;
+        let response = match self.client.get(&url).send().await {
+            Ok(response) => response,
+            Err(e) => {
+                return Err(ProviderError::new(
+                    Provider::Overseerr,
+                    ProviderErrorKind::GetError,
+                    &format!("{:?}", e),
+                ));
+            }
+        };
         match media_type {
             "movie" => {
                 let movie: overseerr::Movie =
-                    response.json().await.context("Failed to parse movie")?;
+                    match response.json().await.context("Failed to parse movie") {
+                        Ok(movie) => movie,
+                        Err(e) => {
+                            return Err(ProviderError::new(
+                                Provider::Overseerr,
+                                ProviderErrorKind::ParseError,
+                                &format!("{:?}", e),
+                            ));
+                        }
+                    };
                 match movie.original_title {
                     Some(title) => Ok(title),
                     None => Ok("Unknown".to_string()),
                 }
             }
             "tv" => {
-                let show: overseerr::Tv = response.json().await.context("Failed to parse show")?;
+                let show: overseerr::Tv =
+                    match response.json().await.context("Failed to parse show") {
+                        Ok(show) => show,
+                        Err(e) => {
+                            return Err(ProviderError::new(
+                                Provider::Overseerr,
+                                ProviderErrorKind::ParseError,
+                                &format!("{:?}", e),
+                            ));
+                        }
+                    };
                 Ok(show.name)
             }
             _ => Ok("Unknown".to_string()),
