@@ -20,17 +20,22 @@ Example: `config.toml`:
 [server]
 port=8000
 address="0.0.0.0"
-[sonarr]
+[sonarr.main]
 address="http://localhost:8989"
+api_key=""
+
+[sonarr.second]
+address="http://localhost:7979"
 api_key=""
 
 [tautulli]
 address="http://localhost:8181"
 api_key=""
 
-[radarr]
+[radarr.main]
 address="http://localhost:7878"
 api_key=""
+
 
 [overseerr]
 address="http://localhost:5055"
@@ -39,6 +44,11 @@ requests=200
 ```
 
 For overseerr you can customize the number of requests you want to pull. Default is 20.  
+
+### Multi instances
+
+There can be multi instances of Sonarr and Radarr (does not really make sense for the others).  
+That's why you need to put a identifier for those services in the config file.
 
 
 ## Building the project 
