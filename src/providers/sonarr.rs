@@ -8,6 +8,8 @@ use crate::providers::{Provider, ProviderError, ProviderErrorKind};
 
 #[derive(Debug, Deserialize, Clone, Serialize)]
 pub struct Sonarr {
+    #[serde(skip)]
+    pub name: String,
     pub address: String,
     #[serde(rename = "apikey")]
     pub api_key: String,
@@ -37,7 +39,7 @@ impl std::fmt::Display for SonarrEpisode {
 }
 
 impl Sonarr {
-    pub fn new(address: &str, api_key: &str) -> Result<Sonarr, ProviderError> {
+    pub fn new(name: &str, address: &str, api_key: &str) -> Result<Sonarr, ProviderError> {
         let mut headers = header::HeaderMap::new();
         let mut header_api_key = header::HeaderValue::from_str(api_key).unwrap();
         header_api_key.set_sensitive(true);
@@ -46,6 +48,7 @@ impl Sonarr {
             .default_headers(headers)
             .build()?;
         Ok(Sonarr {
+            name: name.to_string(),
             address: address.to_string(),
             api_key: api_key.to_string(),
             client,

@@ -4,6 +4,7 @@ use rocket::http::{Accept, ContentType, Status};
 use rocket::tokio::task;
 use rocket::tokio::task::JoinSet;
 use rocket::{get, routes, Build, Responder, Rocket, State};
+use std::collections::HashMap;
 use std::process::exit;
 use tokio::task::JoinError;
 
@@ -67,11 +68,15 @@ async fn process_task(task: Task) -> Result<TaskResult, JoinError> {
     info!("Requesting data for {:?}", &task,);
     match task {
         Task::SonarrToday(sonarr) => {
+            let name = &sonarr.name;
             let result = sonarr.get_today_shows().await;
+            let result = HashMap::from([(name.to_string(), result)]);
             Ok(TaskResult::SonarrToday(result))
         }
         Task::SonarrMissing(sonarr) => {
+            let name = &sonarr.name;
             let result = sonarr.get_last_week_missing_shows().await;
+            let result = HashMap::from([(name.to_string(), result)]);
             Ok(TaskResult::SonarrMissing(result))
         }
         Task::TautulliSessionPercentage(tautulli) => {
@@ -87,7 +92,9 @@ async fn process_task(task: Task) -> Result<TaskResult, JoinError> {
             Ok(TaskResult::TautulliLibrary(result))
         }
         Task::Radarr(radarr) => {
+            let name = &radarr.name;
             let result = radarr.get_radarr_movies().await;
+            let result = HashMap::from([(name.to_string(), result)]);
             Ok(TaskResult::Radarr(result))
         }
         Task::Overseerr(overseerr) => {

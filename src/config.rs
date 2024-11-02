@@ -6,6 +6,7 @@ use log::{debug, info, Level};
 use rocket::figment::providers::Serialized;
 use rocket::serde::Serialize;
 use serde::Deserialize;
+use std::collections::HashMap;
 use std::path::PathBuf;
 
 use crate::providers::overseerr::Overseerr;
@@ -16,8 +17,8 @@ use crate::providers::tautulli::Tautulli;
 #[derive(Debug, Deserialize, Clone, Serialize)]
 pub struct Config {
     pub tautulli: Option<Tautulli>,
-    pub sonarr: Option<Sonarr>,
-    pub radarr: Option<Radarr>,
+    pub sonarr: Option<HashMap<String, Sonarr>>,
+    pub radarr: Option<HashMap<String, Radarr>>,
     pub overseerr: Option<Overseerr>,
     pub http: rocket::Config,
 }
@@ -70,9 +71,11 @@ pub fn read(config_file: PathBuf, log_level: Level) -> anyhow::Result<Config> {
 pub fn get_tasks(config: Config) -> anyhow::Result<Vec<Task>> {
     let mut tasks = Vec::new();
     if let Some(sonarr) = config.sonarr {
-        let sonarr = Sonarr::new(&sonarr.address, &sonarr.api_key)?;
-        tasks.push(Task::SonarrToday(sonarr.clone()));
-        tasks.push(Task::SonarrMissing(sonarr));
+        for (name, s) in sonarr {
+            let client = Sonarr::new(&name, &s.address, &s.api_key)?;
+            tasks.push(Task::SonarrToday(client.clone()));
+            tasks.push(Task::SonarrMissing(client));
+        }
     }
     if let Some(tautulli) = config.tautulli {
         let tautulli = Tautulli::new(&tautulli.address, &tautulli.api_key)?;
@@ -81,8 +84,10 @@ pub fn get_tasks(config: Config) -> anyhow::Result<Vec<Task>> {
         tasks.push(Task::TautulliLibrary(tautulli));
     }
     if let Some(radarr) = config.radarr {
-        let radarr = Radarr::new(&radarr.address, &radarr.api_key)?;
-        tasks.push(Task::Radarr(radarr));
+        for (name, r) in radarr {
+            let client = Radarr::new(&name, &r.address, &r.api_key)?;
+            tasks.push(Task::Radarr(client));
+        }
     }
     if let Some(overseerr) = config.overseerr {
         let mut reqs = 20;
