@@ -4,6 +4,7 @@ use prometheus_client::encoding::EncodeLabelSet;
 use prometheus_client::metrics::family::Family;
 use prometheus_client::metrics::gauge::Gauge;
 use prometheus_client::registry::Registry;
+use std::collections::HashMap;
 use std::sync::atomic::AtomicU64;
 
 use crate::providers::overseerr::OverseerrRequest;
@@ -19,18 +20,19 @@ pub enum Format {
 }
 
 pub enum TaskResult {
-    SonarrToday(Vec<SonarrEpisode>),
-    SonarrMissing(Vec<SonarrEpisode>),
+    SonarrToday(HashMap<String, Vec<SonarrEpisode>>),
+    SonarrMissing(HashMap<String, Vec<SonarrEpisode>>),
     TautulliSessionPercentage(Vec<SessionSummary>),
     TautulliSession(Vec<SessionSummary>),
     TautulliLibrary(Vec<Library>),
-    Radarr(Vec<RadarrMovie>),
+    Radarr(HashMap<String, Vec<RadarrMovie>>),
     Overseerr(Vec<OverseerrRequest>),
     Default,
 }
 
 #[derive(Clone, Hash, Eq, PartialEq, EncodeLabelSet, Debug)]
 struct SonarrLabels {
+    pub name: String,
     pub sxe: String,
     pub season_number: i64,
     pub episode_number: i64,
@@ -76,6 +78,7 @@ struct TautulliLibraryLabels {
 }
 #[derive(Clone, Hash, Eq, PartialEq, EncodeLabelSet, Debug)]
 struct RadarrLabels {
+    pub name: String,
     pub title: String,
     pub is_available: i8,
     pub monitored: i8,
@@ -95,11 +98,11 @@ pub fn format_metrics(task_result: Vec<TaskResult>) -> anyhow::Result<String> {
     let mut registry = Registry::with_prefix("homers");
     for task_result in task_result {
         match task_result {
-            TaskResult::SonarrToday(episodes) => {
-                format_sonarr_today_metrics(episodes, &mut registry)
+            TaskResult::SonarrToday(sonarr_hash) => {
+                format_sonarr_today_metrics(sonarr_hash, &mut registry)
             }
-            TaskResult::SonarrMissing(episodes) => {
-                format_sonarr_missing_metrics(episodes, &mut registry)
+            TaskResult::SonarrMissing(sonarr_hash) => {
+                format_sonarr_missing_metrics(sonarr_hash, &mut registry)
             }
             TaskResult::TautulliSessionPercentage(sessions) => {
                 format_tautulli_session_percentage_metrics(sessions, &mut registry)
@@ -119,47 +122,59 @@ pub fn format_metrics(task_result: Vec<TaskResult>) -> anyhow::Result<String> {
     Ok(buffer)
 }
 
-pub fn format_sonarr_today_metrics(episodes: Vec<SonarrEpisode>, registry: &mut Registry) {
-    debug!("Formatting {episodes:?} as Prometheus");
+pub fn format_sonarr_today_metrics(
+    sonarr_hash: HashMap<String, Vec<SonarrEpisode>>,
+    registry: &mut Registry,
+) {
+    debug!("Formatting {sonarr_hash:?} as Prometheus");
     let sonarr_episode = Family::<SonarrLabels, Gauge<f64, AtomicU64>>::default();
     registry.register(
         "sonarr_today_episode",
         format!("Sonarr today episode status"),
         sonarr_episode.clone(),
     );
-    for episode in episodes {
-        let labels = SonarrLabels {
-            sxe: episode.sxe.clone(),
-            season_number: episode.season_number,
-            episode_number: episode.episode_number,
-            title: episode.title.clone(),
-            serie: episode.serie.clone(),
-        };
-        sonarr_episode
-            .get_or_create(&labels)
-            .set(if episode.has_file { 1.0 } else { 0.0 });
-    }
+    sonarr_hash.into_iter().for_each(|(name, episode)| {
+        episode.into_iter().for_each(|ep: SonarrEpisode| {
+            let labels = SonarrLabels {
+                name: name.clone(),
+                sxe: ep.sxe.clone(),
+                season_number: ep.season_number,
+                episode_number: ep.episode_number,
+                title: ep.title.clone(),
+                serie: ep.serie.clone(),
+            };
+            sonarr_episode
+                .get_or_create(&labels)
+                .set(if ep.has_file { 1.0 } else { 0.0 });
+        });
+    });
 }
-pub fn format_sonarr_missing_metrics(episodes: Vec<SonarrEpisode>, registry: &mut Registry) {
-    debug!("Formatting {episodes:?} as Prometheus");
+pub fn format_sonarr_missing_metrics(
+    sonarr_hash: HashMap<String, Vec<SonarrEpisode>>,
+    registry: &mut Registry,
+) {
+    debug!("Formatting {sonarr_hash:?} as Prometheus");
     let sonarr_episode = Family::<SonarrLabels, Gauge<f64, AtomicU64>>::default();
     registry.register(
         "sonarr_missing_episode",
         format!("Sonarr missing episode status"),
         sonarr_episode.clone(),
     );
-    for episode in episodes {
-        let labels = SonarrLabels {
-            sxe: episode.sxe.clone(),
-            season_number: episode.season_number,
-            episode_number: episode.episode_number,
-            title: episode.title.clone(),
-            serie: episode.serie.clone(),
-        };
-        sonarr_episode
-            .get_or_create(&labels)
-            .set(if episode.has_file { 1.0 } else { 0.0 });
-    }
+    sonarr_hash.into_iter().for_each(|(name, episode)| {
+        episode.into_iter().for_each(|ep: SonarrEpisode| {
+            let labels = SonarrLabels {
+                name: name.clone(),
+                sxe: ep.sxe.clone(),
+                season_number: ep.season_number,
+                episode_number: ep.episode_number,
+                title: ep.title.clone(),
+                serie: ep.serie.clone(),
+            };
+            sonarr_episode
+                .get_or_create(&labels)
+                .set(if ep.has_file { 1.0 } else { 0.0 });
+        });
+    });
 }
 pub fn format_tautulli_session_percentage_metrics(
     sessions: Vec<SessionSummary>,
@@ -239,25 +254,31 @@ pub fn format_tautulli_library_metrics(libraries: Vec<Library>, registry: &mut R
     }
 }
 
-pub fn format_radarr_metrics(movies: Vec<RadarrMovie>, registry: &mut Registry) {
-    debug!("Formatting {movies:?} as Prometheus");
+pub fn format_radarr_metrics(
+    radarr_hash: HashMap<String, Vec<RadarrMovie>>,
+    registry: &mut Registry,
+) {
+    debug!("Formatting {radarr_hash:?} as Prometheus");
     let radarr_movie = Family::<RadarrLabels, Gauge<f64, AtomicU64>>::default();
     registry.register(
         "radarr_movie",
         format!("Radarr movie status"),
         radarr_movie.clone(),
     );
-    for movie in movies {
-        let labels = RadarrLabels {
-            title: movie.title.clone(),
-            is_available: movie.is_available as i8,
-            monitored: movie.monitored as i8,
-            missing_available: movie.missing_available as i8,
-        };
-        radarr_movie
-            .get_or_create(&labels)
-            .set(if movie.has_file { 1.0 } else { 0.0 });
-    }
+    radarr_hash.into_iter().for_each(|(name, movies)| {
+        movies.into_iter().for_each(|movie| {
+            let labels = RadarrLabels {
+                name: name.clone(),
+                title: movie.title.clone(),
+                is_available: movie.is_available as i8,
+                monitored: movie.monitored as i8,
+                missing_available: movie.missing_available as i8,
+            };
+            radarr_movie
+                .get_or_create(&labels)
+                .set(if movie.has_file { 1.0 } else { 0.0 });
+        });
+    });
 }
 pub fn format_overseerr_metrics(requests: Vec<OverseerrRequest>, registry: &mut Registry) {
     debug!("Formatting {requests:?} as Prometheus");
