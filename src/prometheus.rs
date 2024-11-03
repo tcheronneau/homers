@@ -54,6 +54,10 @@ struct TautulliSessionPercentageLabels {
     pub city: String,
 }
 #[derive(Clone, Hash, Eq, PartialEq, EncodeLabelSet, Debug)]
+struct TautulliTotalSessionLabels {
+    pub sessions: i32,
+}
+#[derive(Clone, Hash, Eq, PartialEq, EncodeLabelSet, Debug)]
 struct TautulliSessionLabels {
     pub user: String,
     pub title: String,
@@ -208,6 +212,20 @@ pub fn format_tautulli_session_percentage_metrics(
 }
 pub fn format_tautulli_session_metrics(sessions: Vec<SessionSummary>, registry: &mut Registry) {
     debug!("Formatting {sessions:?} as Prometheus");
+    let tautulli_total_session =
+        Family::<TautulliTotalSessionLabels, Gauge<f64, AtomicU64>>::default();
+    registry.register(
+        "tautulli_total_session",
+        format!("Tautulli total session status"),
+        tautulli_total_session.clone(),
+    );
+    let total_sessions = sessions.len();
+    let labels = TautulliTotalSessionLabels {
+        sessions: total_sessions as i32,
+    };
+    tautulli_total_session
+        .get_or_create(&labels)
+        .set(total_sessions as f64);
     let tautulli_session = Family::<TautulliSessionLabels, Gauge<f64, AtomicU64>>::default();
     registry.register(
         "tautulli_session",

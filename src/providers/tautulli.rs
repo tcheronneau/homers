@@ -142,7 +142,7 @@ impl Tautulli {
                     TautulliLocation {
                         city: "Unknown".to_string(),
                         country: "Unknown".to_string(),
-                        ip_address: session.ip_address.clone(),
+                        ip_address: session.ip_address_public.clone(),
                         latitude: "0.0".to_string(),
                         longitude: "0.0".to_string(),
                     }
