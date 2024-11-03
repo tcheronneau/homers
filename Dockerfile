@@ -1,5 +1,5 @@
 # Build Stage
-FROM rust:1.74.0 AS builder
+FROM rust:1.77.2 AS builder
 WORKDIR /usr/src/
 
 RUN USER=root cargo new homers
@@ -18,5 +18,5 @@ COPY --from=builder /usr/local/cargo/bin/homers /usr/local/bin
 COPY config.toml /app/config.toml
 RUN apt-get update && \
     apt-get install -y sqlite3 ca-certificates
-USER 1000
+USER 1005
 CMD ["homers", "--config", "config.toml"]

@@ -43,6 +43,12 @@ pub async fn start_server() -> Rocket<Build> {
         .expect("Log level cannot be not available");
 
     simple_logger::init_with_level(log_level).expect("Logging successfully initialized");
-    let config = config::read(args.config.clone(), log_level).expect("Config successfully read");
+    let config = match config::read(args.config.clone(), log_level) {
+        Ok(config) => config,
+        Err(e) => {
+            log::error!("Failed to read config file: {e}");
+            std::process::exit(1);
+        }
+    };
     http_server::configure_rocket(config).await
 }
