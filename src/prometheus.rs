@@ -22,7 +22,6 @@ pub enum Format {
 pub enum TaskResult {
     SonarrToday(HashMap<String, Vec<SonarrEpisode>>),
     SonarrMissing(HashMap<String, Vec<SonarrEpisode>>),
-    TautulliSessionPercentage(Vec<SessionSummary>),
     TautulliSession(Vec<SessionSummary>),
     TautulliLibrary(Vec<Library>),
     Radarr(HashMap<String, Vec<RadarrMovie>>),
@@ -108,9 +107,6 @@ pub fn format_metrics(task_result: Vec<TaskResult>) -> anyhow::Result<String> {
             TaskResult::SonarrMissing(sonarr_hash) => {
                 format_sonarr_missing_metrics(sonarr_hash, &mut registry)
             }
-            TaskResult::TautulliSessionPercentage(sessions) => {
-                format_tautulli_session_percentage_metrics(sessions, &mut registry)
-            }
             TaskResult::TautulliSession(sessions) => {
                 format_tautulli_session_metrics(sessions, &mut registry)
             }
@@ -180,44 +176,27 @@ pub fn format_sonarr_missing_metrics(
         });
     });
 }
-pub fn format_tautulli_session_percentage_metrics(
-    sessions: Vec<SessionSummary>,
-    registry: &mut Registry,
-) {
-    debug!("Formatting {sessions:?} as Prometheus");
-    let tautulli_session =
-        Family::<TautulliSessionPercentageLabels, Gauge<f64, AtomicU64>>::default();
-    registry.register(
-        "tautulli_session_percentage",
-        format!("Tautulli session progress"),
-        tautulli_session.clone(),
-    );
-    for session in sessions {
-        let labels = TautulliSessionPercentageLabels {
-            user: session.user.clone(),
-            title: session.title.clone(),
-            state: session.state.clone(),
-            media_type: session.media_type.clone(),
-            season_number: session.season_number.clone(),
-            episode_number: session.episode_number.clone(),
-            quality: session.quality.clone(),
-            quality_profile: session.quality_profile.clone(),
-            video_stream: session.video_stream.clone(),
-            city: session.location.city.clone(),
-        };
-        tautulli_session
-            .get_or_create(&labels)
-            .set(session.progress.parse::<f64>().unwrap());
-    }
-}
 pub fn format_tautulli_session_metrics(sessions: Vec<SessionSummary>, registry: &mut Registry) {
     debug!("Formatting {sessions:?} as Prometheus");
+    let tautulli_session = Family::<TautulliSessionLabels, Gauge<f64, AtomicU64>>::default();
+    let tautulli_session_percentage =
+        Family::<TautulliSessionPercentageLabels, Gauge<f64, AtomicU64>>::default();
     let tautulli_total_session =
         Family::<TautulliTotalSessionLabels, Gauge<f64, AtomicU64>>::default();
     registry.register(
         "tautulli_total_session",
         format!("Tautulli total session status"),
         tautulli_total_session.clone(),
+    );
+    registry.register(
+        "tautulli_session",
+        format!("Tautulli session status"),
+        tautulli_session.clone(),
+    );
+    registry.register(
+        "tautulli_session_percentage",
+        format!("Tautulli session progress"),
+        tautulli_session.clone(),
     );
     let total_sessions = sessions.len();
     let labels = TautulliTotalSessionLabels {
@@ -226,13 +205,7 @@ pub fn format_tautulli_session_metrics(sessions: Vec<SessionSummary>, registry: 
     tautulli_total_session
         .get_or_create(&labels)
         .set(total_sessions as f64);
-    let tautulli_session = Family::<TautulliSessionLabels, Gauge<f64, AtomicU64>>::default();
-    registry.register(
-        "tautulli_session",
-        format!("Tautulli session status"),
-        tautulli_session.clone(),
-    );
-    for session in sessions {
+    sessions.into_iter().for_each(|session| {
         let labels = TautulliSessionLabels {
             user: session.user.clone(),
             title: session.title.clone(),
@@ -248,7 +221,22 @@ pub fn format_tautulli_session_metrics(sessions: Vec<SessionSummary>, registry: 
             latitude: session.location.latitude.clone(),
         };
         tautulli_session.get_or_create(&labels).set(1.0);
-    }
+        let labels = TautulliSessionPercentageLabels {
+            user: session.user.clone(),
+            title: session.title.clone(),
+            state: session.state.clone(),
+            media_type: session.media_type.clone(),
+            season_number: session.season_number.clone(),
+            episode_number: session.episode_number.clone(),
+            quality: session.quality.clone(),
+            quality_profile: session.quality_profile.clone(),
+            video_stream: session.video_stream.clone(),
+            city: session.location.city.clone(),
+        };
+        tautulli_session_percentage
+            .get_or_create(&labels)
+            .set(session.progress.parse::<f64>().unwrap());
+    });
 }
 pub fn format_tautulli_library_metrics(libraries: Vec<Library>, registry: &mut Registry) {
     debug!("Formatting {libraries:?} as Prometheus");
@@ -258,7 +246,7 @@ pub fn format_tautulli_library_metrics(libraries: Vec<Library>, registry: &mut R
         format!("Tautulli library status"),
         tautulli_library.clone(),
     );
-    for library in libraries {
+    libraries.into_iter().for_each(|library| {
         let labels = TautulliLibraryLabels {
             section_name: library.section_name.clone(),
             section_type: library.section_type.clone(),
@@ -269,7 +257,7 @@ pub fn format_tautulli_library_metrics(libraries: Vec<Library>, registry: &mut R
         tautulli_library
             .get_or_create(&labels)
             .set(library.is_active as f64);
-    }
+    });
 }
 
 pub fn format_radarr_metrics(
@@ -306,7 +294,7 @@ pub fn format_overseerr_metrics(requests: Vec<OverseerrRequest>, registry: &mut 
         format!("overseerr requests status"),
         overseerr_request.clone(),
     );
-    for request in requests {
+    requests.into_iter().for_each(|request| {
         let labels = OverseerrLabels {
             media_type: request.media_type.clone(),
             requested_by: request.requested_by.to_string(),
@@ -317,5 +305,5 @@ pub fn format_overseerr_metrics(requests: Vec<OverseerrRequest>, registry: &mut 
         overseerr_request
             .get_or_create(&labels)
             .set(request.media_status as f64);
-    }
+    });
 }

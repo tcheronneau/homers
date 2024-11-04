@@ -40,7 +40,6 @@ pub enum Task {
     SonarrMissing(Sonarr),
     Radarr(Radarr),
     Overseerr(Overseerr),
-    TautulliSessionPercentage(Tautulli),
     TautulliSession(Tautulli),
     TautulliLibrary(Tautulli),
     Default,
@@ -79,7 +78,6 @@ pub fn get_tasks(config: Config) -> anyhow::Result<Vec<Task>> {
     }
     if let Some(tautulli) = config.tautulli {
         let tautulli = Tautulli::new(&tautulli.address, &tautulli.api_key)?;
-        tasks.push(Task::TautulliSessionPercentage(tautulli.clone()));
         tasks.push(Task::TautulliSession(tautulli.clone()));
         tasks.push(Task::TautulliLibrary(tautulli));
     }
