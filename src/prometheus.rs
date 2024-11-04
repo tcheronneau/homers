@@ -196,7 +196,7 @@ pub fn format_tautulli_session_metrics(sessions: Vec<SessionSummary>, registry: 
     registry.register(
         "tautulli_session_percentage",
         format!("Tautulli session progress"),
-        tautulli_session.clone(),
+        tautulli_session_percentage.clone(),
     );
     let total_sessions = sessions.len();
     let labels = TautulliTotalSessionLabels {
@@ -206,6 +206,21 @@ pub fn format_tautulli_session_metrics(sessions: Vec<SessionSummary>, registry: 
         .get_or_create(&labels)
         .set(total_sessions as f64);
     sessions.into_iter().for_each(|session| {
+        let labels = TautulliSessionPercentageLabels {
+            user: session.user.clone(),
+            title: session.title.clone(),
+            state: session.state.clone(),
+            media_type: session.media_type.clone(),
+            season_number: session.season_number.clone(),
+            episode_number: session.episode_number.clone(),
+            quality: session.quality.clone(),
+            quality_profile: session.quality_profile.clone(),
+            video_stream: session.video_stream.clone(),
+            city: session.location.city.clone(),
+        };
+        tautulli_session_percentage
+            .get_or_create(&labels)
+            .set(session.progress.parse::<f64>().unwrap_or(0.0));
         let labels = TautulliSessionLabels {
             user: session.user.clone(),
             title: session.title.clone(),
@@ -221,21 +236,6 @@ pub fn format_tautulli_session_metrics(sessions: Vec<SessionSummary>, registry: 
             latitude: session.location.latitude.clone(),
         };
         tautulli_session.get_or_create(&labels).set(1.0);
-        let labels = TautulliSessionPercentageLabels {
-            user: session.user.clone(),
-            title: session.title.clone(),
-            state: session.state.clone(),
-            media_type: session.media_type.clone(),
-            season_number: session.season_number.clone(),
-            episode_number: session.episode_number.clone(),
-            quality: session.quality.clone(),
-            quality_profile: session.quality_profile.clone(),
-            video_stream: session.video_stream.clone(),
-            city: session.location.city.clone(),
-        };
-        tautulli_session_percentage
-            .get_or_create(&labels)
-            .set(session.progress.parse::<f64>().unwrap());
     });
 }
 pub fn format_tautulli_library_metrics(libraries: Vec<Library>, registry: &mut Registry) {
