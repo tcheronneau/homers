@@ -38,7 +38,16 @@ pub struct Radarr {
 impl Radarr {
     pub fn new(name: &str, address: &str, api_key: &str) -> Result<Radarr, ProviderError> {
         let mut headers = header::HeaderMap::new();
-        let mut header_api_key = header::HeaderValue::from_str(&api_key).unwrap();
+        let mut header_api_key = match header::HeaderValue::from_str(&api_key) {
+            Ok(header_api_key) => header_api_key,
+            Err(e) => {
+                return Err(ProviderError::new(
+                    Provider::Radarr,
+                    ProviderErrorKind::HeaderError,
+                    &format!("{:?}", e),
+                ));
+            }
+        };
         header_api_key.set_sensitive(true);
         headers.insert("X-Api-Key", header_api_key);
         headers.insert(

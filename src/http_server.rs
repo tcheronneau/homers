@@ -79,10 +79,6 @@ async fn process_task(task: Task) -> Result<TaskResult, JoinError> {
             let result = HashMap::from([(name.to_string(), result)]);
             Ok(TaskResult::SonarrMissing(result))
         }
-        Task::TautulliSessionPercentage(tautulli) => {
-            let result = tautulli.get_session_summary().await;
-            Ok(TaskResult::TautulliSessionPercentage(result))
-        }
         Task::TautulliSession(tautulli) => {
             let result = tautulli.get_session_summary().await;
             Ok(TaskResult::TautulliSession(result))

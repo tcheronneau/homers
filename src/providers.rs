@@ -8,6 +8,7 @@ pub mod unifi;
 #[derive(Debug)]
 pub enum ProviderErrorKind {
     GetError,
+    HeaderError,
     ParseError,
 }
 
@@ -56,6 +57,13 @@ impl std::fmt::Display for ProviderError {
                 "There was an error while getting information from {}: {}",
                 self.provider, self.message
             ),
+            ProviderErrorKind::HeaderError => {
+                write!(
+                    f,
+                    "There was an error while setting headers for {}: {}",
+                    self.provider, self.message
+                )
+            }
             ProviderErrorKind::ParseError => {
                 write!(
                     f,

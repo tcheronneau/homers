@@ -40,7 +40,6 @@ pub enum Task {
     SonarrMissing(Sonarr),
     Radarr(Radarr),
     Overseerr(Overseerr),
-    TautulliSessionPercentage(Tautulli),
     TautulliSession(Tautulli),
     TautulliLibrary(Tautulli),
     Default,
@@ -68,24 +67,32 @@ pub fn read(config_file: PathBuf, log_level: Level) -> anyhow::Result<Config> {
     Ok(config)
 }
 
+fn remove_trailing_slash(s: &str) -> &str {
+    if s.ends_with('/') {
+        debug!("Removing trailing slash from {}", s);
+        &s[..s.len() - 1]
+    } else {
+        s
+    }
+}
+
 pub fn get_tasks(config: Config) -> anyhow::Result<Vec<Task>> {
     let mut tasks = Vec::new();
     if let Some(sonarr) = config.sonarr {
         for (name, s) in sonarr {
-            let client = Sonarr::new(&name, &s.address, &s.api_key)?;
+            let client = Sonarr::new(&name, remove_trailing_slash(&s.address), &s.api_key)?;
             tasks.push(Task::SonarrToday(client.clone()));
             tasks.push(Task::SonarrMissing(client));
         }
     }
     if let Some(tautulli) = config.tautulli {
-        let tautulli = Tautulli::new(&tautulli.address, &tautulli.api_key)?;
-        tasks.push(Task::TautulliSessionPercentage(tautulli.clone()));
+        let tautulli = Tautulli::new(remove_trailing_slash(&tautulli.address), &tautulli.api_key)?;
         tasks.push(Task::TautulliSession(tautulli.clone()));
         tasks.push(Task::TautulliLibrary(tautulli));
     }
     if let Some(radarr) = config.radarr {
         for (name, r) in radarr {
-            let client = Radarr::new(&name, &r.address, &r.api_key)?;
+            let client = Radarr::new(&name, remove_trailing_slash(&r.address), &r.api_key)?;
             tasks.push(Task::Radarr(client));
         }
     }
@@ -94,7 +101,11 @@ pub fn get_tasks(config: Config) -> anyhow::Result<Vec<Task>> {
         if let Some(requests) = overseerr.requests {
             reqs = requests;
         }
-        let overseerr = Overseerr::new(&overseerr.address, &overseerr.api_key, reqs)?;
+        let overseerr = Overseerr::new(
+            remove_trailing_slash(&overseerr.address),
+            &overseerr.api_key,
+            reqs,
+        )?;
         tasks.push(Task::Overseerr(overseerr));
     }
     Ok(tasks)

@@ -6,7 +6,7 @@ RUN USER=root cargo new homers
 WORKDIR /usr/src/homers
 COPY Cargo.toml Cargo.lock ./
 COPY src ./src
-RUN cargo build --release
+RUN cargo build 
 
 RUN cargo install --path .
 
