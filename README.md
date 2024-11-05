@@ -5,6 +5,9 @@ Since InfluxDB is not a good option for me, I decided to use prometheus and to b
 
 It's not ready yet, but some features are already there. 
 
+![image](https://github.com/user-attachments/assets/9a0c2fb0-52f3-439d-b590-9c6698994d10)
+
+
 ## Getting Started
 
 The easiest way to start the project is to use docker.  
