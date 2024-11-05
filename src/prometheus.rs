@@ -53,9 +53,7 @@ struct TautulliSessionPercentageLabels {
     pub city: String,
 }
 #[derive(Clone, Hash, Eq, PartialEq, EncodeLabelSet, Debug)]
-struct TautulliTotalSessionLabels {
-    pub sessions: i32,
-}
+struct TautulliTotalSessionLabels {}
 #[derive(Clone, Hash, Eq, PartialEq, EncodeLabelSet, Debug)]
 struct TautulliSessionLabels {
     pub user: String,
@@ -199,9 +197,7 @@ pub fn format_tautulli_session_metrics(sessions: Vec<SessionSummary>, registry: 
         tautulli_session_percentage.clone(),
     );
     let total_sessions = sessions.len();
-    let labels = TautulliTotalSessionLabels {
-        sessions: total_sessions as i32,
-    };
+    let labels = TautulliTotalSessionLabels {};
     tautulli_total_session
         .get_or_create(&labels)
         .set(total_sessions as f64);

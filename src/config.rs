@@ -10,6 +10,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 use crate::providers::overseerr::Overseerr;
+use crate::providers::plex::Plex;
 use crate::providers::radarr::Radarr;
 use crate::providers::sonarr::Sonarr;
 use crate::providers::tautulli::Tautulli;
@@ -20,6 +21,7 @@ pub struct Config {
     pub sonarr: Option<HashMap<String, Sonarr>>,
     pub radarr: Option<HashMap<String, Radarr>>,
     pub overseerr: Option<Overseerr>,
+    pub plex: Option<HashMap<String, Plex>>,
     pub http: rocket::Config,
 }
 impl Default for Config {
@@ -29,6 +31,7 @@ impl Default for Config {
             sonarr: None,
             radarr: None,
             overseerr: None,
+            plex: None,
             http: rocket::Config::default(),
         }
     }
