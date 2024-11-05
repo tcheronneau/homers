@@ -3,7 +3,7 @@ name: build
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - "v*.*.*"
 
 jobs:
   docker:
@@ -24,10 +24,10 @@ jobs:
       - name: Set env
         run: |
           RELEASE_VERSION=$(echo ${GITHUB_REF##/})
-          echo "TAG=${RELEASE_VERSION#v}" >> $GITHUB_ENV
+          echo "DOCKER_TAG=$(echo ${RELEASE_VERSION#v})" >> $GITHUB_ENV
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: mcth/homers:${{ env.TAG }}
+          tags: mcth/homers:${{ env.DOCKER_TAG }}
