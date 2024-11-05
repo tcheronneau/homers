@@ -2,8 +2,8 @@ name: build
 
 on:
   push:
-    branches:
-      - dev
+    tags:
+      - "v*.*.*"
 
 jobs:
   docker:
@@ -21,9 +21,13 @@ jobs:
           username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       
+      - name: Set env
+        run: |
+          RELEASE_VERSION=$(echo ${GITHUB_REF##*/})
+          echo "DOCKER_TAG=$(echo ${RELEASE_VERSION#v})" >> $GITHUB_ENV
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
-          platforms: linux/amd64 #,linux/arm64
+          platforms: linux/amd64,linux/arm64
           push: true
-          tags: mcth/homers:dev 
+          tags: mcth/homers:${{ env.DOCKER_TAG }}
