@@ -97,6 +97,12 @@ async fn process_task(task: Task) -> Result<TaskResult, JoinError> {
             let result = overseerr.get_overseerr_requests().await;
             Ok(TaskResult::Overseerr(result))
         }
+        Task::PlexHistory(plex) => {
+            let name = &plex.name;
+            let result = plex.get_views().await;
+            let result = HashMap::from([(name.to_string(), result)]);
+            Ok(TaskResult::PlexHistory(result))
+        }
         Task::Default => Ok(TaskResult::Default),
     }
 }

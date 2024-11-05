@@ -5,9 +5,11 @@ use prometheus_client::metrics::family::Family;
 use prometheus_client::metrics::gauge::Gauge;
 use prometheus_client::registry::Registry;
 use std::collections::HashMap;
+use std::fmt::Write;
 use std::sync::atomic::AtomicU64;
 
 use crate::providers::overseerr::OverseerrRequest;
+use crate::providers::plex::PlexViews;
 use crate::providers::radarr::RadarrMovie;
 use crate::providers::sonarr::SonarrEpisode;
 use crate::providers::structs::tautulli::Library;
@@ -26,7 +28,33 @@ pub enum TaskResult {
     TautulliLibrary(Vec<Library>),
     Radarr(HashMap<String, Vec<RadarrMovie>>),
     Overseerr(Vec<OverseerrRequest>),
+    PlexHistory(HashMap<String, PlexViews>),
     Default,
+}
+
+#[derive(Clone, Hash, Eq, PartialEq, EncodeLabelSet, Debug)]
+struct PlexHistoryLabels {
+    pub name: String,
+    pub kind: PlexHistoryType,
+}
+
+#[derive(Clone, Hash, Eq, PartialEq, Debug)]
+enum PlexHistoryType {
+    EpisodesViewed,
+    MoviesViewed,
+}
+impl prometheus_client::encoding::EncodeLabelValue for PlexHistoryType {
+    fn encode(
+        &self,
+        writer: &mut prometheus_client::encoding::LabelValueEncoder,
+    ) -> Result<(), std::fmt::Error> {
+        let kind = match self {
+            PlexHistoryType::EpisodesViewed => "episodes_viewed",
+            PlexHistoryType::MoviesViewed => "movies_viewed",
+        };
+        writer.write_str(kind)?;
+        Ok(())
+    }
 }
 
 #[derive(Clone, Hash, Eq, PartialEq, EncodeLabelSet, Debug)]
@@ -113,6 +141,7 @@ pub fn format_metrics(task_result: Vec<TaskResult>) -> anyhow::Result<String> {
             }
             TaskResult::Radarr(movies) => format_radarr_metrics(movies, &mut registry),
             TaskResult::Overseerr(overseerr) => format_overseerr_metrics(overseerr, &mut registry),
+            TaskResult::PlexHistory(views) => format_plex_history_metrics(views, &mut registry),
             TaskResult::Default => return Err(anyhow::anyhow!("No task result")),
         }
     }
@@ -120,7 +149,7 @@ pub fn format_metrics(task_result: Vec<TaskResult>) -> anyhow::Result<String> {
     Ok(buffer)
 }
 
-pub fn format_sonarr_today_metrics(
+fn format_sonarr_today_metrics(
     sonarr_hash: HashMap<String, Vec<SonarrEpisode>>,
     registry: &mut Registry,
 ) {
@@ -147,7 +176,7 @@ pub fn format_sonarr_today_metrics(
         });
     });
 }
-pub fn format_sonarr_missing_metrics(
+fn format_sonarr_missing_metrics(
     sonarr_hash: HashMap<String, Vec<SonarrEpisode>>,
     registry: &mut Registry,
 ) {
@@ -174,18 +203,13 @@ pub fn format_sonarr_missing_metrics(
         });
     });
 }
-pub fn format_tautulli_session_metrics(sessions: Vec<SessionSummary>, registry: &mut Registry) {
+fn format_tautulli_session_metrics(sessions: Vec<SessionSummary>, registry: &mut Registry) {
     debug!("Formatting {sessions:?} as Prometheus");
     let tautulli_session = Family::<TautulliSessionLabels, Gauge<f64, AtomicU64>>::default();
     let tautulli_session_percentage =
         Family::<TautulliSessionPercentageLabels, Gauge<f64, AtomicU64>>::default();
     let tautulli_total_session =
         Family::<TautulliTotalSessionLabels, Gauge<f64, AtomicU64>>::default();
-    registry.register(
-        "tautulli_total_session",
-        format!("Tautulli total session status"),
-        tautulli_total_session.clone(),
-    );
     registry.register(
         "tautulli_session",
         format!("Tautulli session status"),
@@ -234,7 +258,7 @@ pub fn format_tautulli_session_metrics(sessions: Vec<SessionSummary>, registry: 
         tautulli_session.get_or_create(&labels).set(1.0);
     });
 }
-pub fn format_tautulli_library_metrics(libraries: Vec<Library>, registry: &mut Registry) {
+fn format_tautulli_library_metrics(libraries: Vec<Library>, registry: &mut Registry) {
     debug!("Formatting {libraries:?} as Prometheus");
     let tautulli_library = Family::<TautulliLibraryLabels, Gauge<f64, AtomicU64>>::default();
     registry.register(
@@ -256,10 +280,7 @@ pub fn format_tautulli_library_metrics(libraries: Vec<Library>, registry: &mut R
     });
 }
 
-pub fn format_radarr_metrics(
-    radarr_hash: HashMap<String, Vec<RadarrMovie>>,
-    registry: &mut Registry,
-) {
+fn format_radarr_metrics(radarr_hash: HashMap<String, Vec<RadarrMovie>>, registry: &mut Registry) {
     debug!("Formatting {radarr_hash:?} as Prometheus");
     let radarr_movie = Family::<RadarrLabels, Gauge<f64, AtomicU64>>::default();
     registry.register(
@@ -282,7 +303,7 @@ pub fn format_radarr_metrics(
         });
     });
 }
-pub fn format_overseerr_metrics(requests: Vec<OverseerrRequest>, registry: &mut Registry) {
+fn format_overseerr_metrics(requests: Vec<OverseerrRequest>, registry: &mut Registry) {
     debug!("Formatting {requests:?} as Prometheus");
     let overseerr_request = Family::<OverseerrLabels, Gauge<f64, AtomicU64>>::default();
     registry.register(
@@ -301,5 +322,30 @@ pub fn format_overseerr_metrics(requests: Vec<OverseerrRequest>, registry: &mut 
         overseerr_request
             .get_or_create(&labels)
             .set(request.media_status as f64);
+    });
+}
+
+fn format_plex_history_metrics(views: HashMap<String, PlexViews>, registry: &mut Registry) {
+    debug!("Formatting {views:?} as Prometheus");
+    let plex_views = Family::<PlexHistoryLabels, Gauge<f64, AtomicU64>>::default();
+    registry.register(
+        "plex_views",
+        format!("Plex views status"),
+        plex_views.clone(),
+    );
+
+    views.into_iter().for_each(|(name, views)| {
+        plex_views
+            .get_or_create(&PlexHistoryLabels {
+                name: name.clone(),
+                kind: PlexHistoryType::EpisodesViewed,
+            })
+            .set(views.episodes_viewed as f64);
+        plex_views
+            .get_or_create(&PlexHistoryLabels {
+                name: name.clone(),
+                kind: PlexHistoryType::MoviesViewed,
+            })
+            .set(views.movies_viewed as f64);
     });
 }

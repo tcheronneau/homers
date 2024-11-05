@@ -45,6 +45,7 @@ pub enum Task {
     Overseerr(Overseerr),
     TautulliSession(Tautulli),
     TautulliLibrary(Tautulli),
+    PlexHistory(Plex),
     Default,
 }
 
@@ -110,6 +111,12 @@ pub fn get_tasks(config: Config) -> anyhow::Result<Vec<Task>> {
             reqs,
         )?;
         tasks.push(Task::Overseerr(overseerr));
+    }
+    if let Some(plex) = config.plex {
+        for (name, p) in plex {
+            let client = Plex::new(&name, remove_trailing_slash(&p.address), &p.token)?;
+            tasks.push(Task::PlexHistory(client));
+        }
     }
     Ok(tasks)
 }
