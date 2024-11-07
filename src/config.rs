@@ -46,6 +46,7 @@ pub enum Task {
     TautulliSession(Tautulli),
     TautulliLibrary(Tautulli),
     PlexHistory(Plex),
+    PlexSession(Plex),
     Default,
 }
 
@@ -115,7 +116,8 @@ pub fn get_tasks(config: Config) -> anyhow::Result<Vec<Task>> {
     if let Some(plex) = config.plex {
         for (name, p) in plex {
             let client = Plex::new(&name, remove_trailing_slash(&p.address), &p.token)?;
-            tasks.push(Task::PlexHistory(client));
+            tasks.push(Task::PlexHistory(client.clone()));
+            tasks.push(Task::PlexSession(client));
         }
     }
     Ok(tasks)

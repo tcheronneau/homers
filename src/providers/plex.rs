@@ -3,7 +3,9 @@ use reqwest;
 use reqwest::header;
 use serde::{Deserialize, Serialize};
 
-use crate::providers::structs::plex::PlexResponse;
+pub use crate::providers::structs::plex::SessionMetadata;
+use crate::providers::structs::plex::{Metadata, PlexResponse};
+use crate::providers::{Provider, ProviderError, ProviderErrorKind};
 
 #[derive(Debug, Deserialize, Clone, Serialize)]
 pub struct PlexViews {
@@ -49,12 +51,63 @@ impl Plex {
             client,
         })
     }
-    async fn get_history(&self) -> anyhow::Result<PlexResponse> {
+    async fn get_history(&self) -> Result<PlexResponse, ProviderError> {
         let url = format!("{}/status/sessions/history/all", self.address);
         debug!("Requesting history from {}", url);
         let response = self.client.get(&url).send().await?;
         let history = response.json::<PlexResponse>().await?;
         Ok(history)
+    }
+
+    async fn get_sessions(&self) -> Result<PlexResponse, ProviderError> {
+        let url = format!("{}/status/sessions", self.address);
+        debug!("Requesting session from {}", url);
+        let response = match self.client.get(&url).send().await {
+            Ok(response) => response,
+            Err(e) => {
+                return Err(ProviderError::new(
+                    Provider::Plex,
+                    ProviderErrorKind::GetError,
+                    &format!("{:?}", e),
+                ));
+            }
+        };
+        let session = match response.json::<PlexResponse>().await {
+            Ok(session) => session,
+            Err(e) => {
+                return Err(ProviderError::new(
+                    Provider::Plex,
+                    ProviderErrorKind::ParseError,
+                    &format!("{:?}", e),
+                ));
+            }
+        };
+        Ok(session)
+    }
+
+    pub async fn get_current_sessions(&self) -> Vec<SessionMetadata> {
+        let sessions = match self.get_sessions().await {
+            Ok(sessions) => sessions,
+            Err(e) => {
+                error!("Failed to get sessions: {}", e);
+                return Vec::new();
+            }
+        };
+        let mut current_sessions: Vec<SessionMetadata> = Vec::new();
+        sessions
+            .media_container
+            .metadata
+            .iter()
+            .for_each(|item| match item {
+                Metadata::SessionMetadata(meta) => {
+                    current_sessions.push(meta.clone());
+                }
+                _ => {
+                    dbg!(item);
+                    error!("Metadata received does not match session metadata");
+                }
+            });
+        current_sessions
     }
 
     pub async fn get_views(&self) -> PlexViews {
@@ -70,13 +123,22 @@ impl Plex {
         };
         let mut episodes_viewed = 0;
         let mut movies_viewed = 0;
-        history.media_container.metadata.iter().for_each(|item| {
-            if item.type_field == "episode" {
-                episodes_viewed += 1;
-            } else if item.type_field == "movie" {
-                movies_viewed += 1;
-            }
-        });
+        history
+            .media_container
+            .metadata
+            .iter()
+            .for_each(|item| match item {
+                Metadata::HistoryMetadata(meta) => {
+                    if meta.type_field == "episode" {
+                        episodes_viewed += 1;
+                    } else if meta.type_field == "movie" {
+                        movies_viewed += 1;
+                    }
+                }
+                _ => {
+                    error!("Metadata received does not match history metadata");
+                }
+            });
         PlexViews {
             episodes_viewed,
             movies_viewed,

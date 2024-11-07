@@ -9,7 +9,7 @@ use std::fmt::Write;
 use std::sync::atomic::AtomicU64;
 
 use crate::providers::overseerr::OverseerrRequest;
-use crate::providers::plex::PlexViews;
+use crate::providers::plex::{PlexViews, SessionMetadata};
 use crate::providers::radarr::RadarrMovie;
 use crate::providers::sonarr::SonarrEpisode;
 use crate::providers::structs::tautulli::Library;
@@ -29,6 +29,7 @@ pub enum TaskResult {
     Radarr(HashMap<String, Vec<RadarrMovie>>),
     Overseerr(Vec<OverseerrRequest>),
     PlexHistory(HashMap<String, PlexViews>),
+    PlexSession(HashMap<String, Vec<SessionMetadata>>),
     Default,
 }
 
@@ -36,6 +37,21 @@ pub enum TaskResult {
 struct PlexHistoryLabels {
     pub name: String,
     pub kind: PlexHistoryType,
+}
+
+#[derive(Clone, Hash, Eq, PartialEq, EncodeLabelSet, Debug)]
+struct PlexSessionLabels {
+    pub name: String,
+    pub title: String,
+    pub user: String,
+    pub decision: String,
+    pub state: String,
+    pub platform: String,
+    pub local: i8,
+    pub relayed: i8,
+    pub secure: i8,
+    pub address: String,
+    pub public_address: String,
 }
 
 #[derive(Clone, Hash, Eq, PartialEq, Debug)]
@@ -142,6 +158,9 @@ pub fn format_metrics(task_result: Vec<TaskResult>) -> anyhow::Result<String> {
             TaskResult::Radarr(movies) => format_radarr_metrics(movies, &mut registry),
             TaskResult::Overseerr(overseerr) => format_overseerr_metrics(overseerr, &mut registry),
             TaskResult::PlexHistory(views) => format_plex_history_metrics(views, &mut registry),
+            TaskResult::PlexSession(sessions) => {
+                format_plex_session_metrics(sessions, &mut registry)
+            }
             TaskResult::Default => return Err(anyhow::anyhow!("No task result")),
         }
     }
@@ -347,5 +366,37 @@ fn format_plex_history_metrics(views: HashMap<String, PlexViews>, registry: &mut
                 kind: PlexHistoryType::MoviesViewed,
             })
             .set(views.movies_viewed as f64);
+    });
+}
+fn format_plex_session_metrics(
+    sessions: HashMap<String, Vec<SessionMetadata>>,
+    registry: &mut Registry,
+) {
+    debug!("Formatting {sessions:?} as Prometheus");
+    let plex_sessions = Family::<PlexSessionLabels, Gauge<f64, AtomicU64>>::default();
+    registry.register(
+        "plex_sessions",
+        format!("Plex sessions status"),
+        plex_sessions.clone(),
+    );
+
+    sessions.into_iter().for_each(|(name, sessions)| {
+        sessions.into_iter().for_each(|session| {
+            plex_sessions
+                .get_or_create(&PlexSessionLabels {
+                    name: name.clone(),
+                    title: session.title.clone(),
+                    user: session.user.title.clone(),
+                    decision: session.media[0].part[0].decision.clone(),
+                    state: session.player.state_field.clone(),
+                    platform: session.player.platform.clone(),
+                    local: session.player.local as i8,
+                    relayed: session.player.relayed as i8,
+                    secure: session.player.secure as i8,
+                    address: session.player.address.clone(),
+                    public_address: session.player.remote_public_address.clone(),
+                })
+                .set(1.0);
+        });
     });
 }
