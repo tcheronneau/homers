@@ -73,7 +73,7 @@ impl SessionMetadata {
         let user = self.user.title.clone();
         let state = self.player.state_field.clone();
         let progress = self.progress();
-        let quality = self.player.platform.clone();
+        let quality = self.media[0].part[0].stream[0].display_title.clone();
         let season_number = match self.index {
             Some(index) => Some(index.to_string()),
             None => None,
@@ -88,7 +88,7 @@ impl SessionMetadata {
         let local = self.player.local;
         let secure = self.player.secure;
         let relayed = self.player.relayed;
-        let platform = self.player.product.clone();
+        let platform = self.player.platform.clone();
         PlexSessions {
             title,
             user,
@@ -122,6 +122,13 @@ pub struct Media {
 pub struct Part {
     pub decision: String,
     pub container: String,
+    #[serde(rename = "Stream")]
+    pub stream: Vec<Stream>,
+}
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Stream {
+    pub display_title: String,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]

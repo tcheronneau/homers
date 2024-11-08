@@ -59,6 +59,26 @@ struct PlexSessionLabels {
     pub longitude: String,
     pub latitude: String,
 }
+#[derive(Clone, Hash, Eq, PartialEq, EncodeLabelSet, Debug)]
+struct PlexSessionPercentageLabels {
+    pub name: String,
+    pub title: String,
+    pub user: String,
+    pub decision: String,
+    pub state: String,
+    pub platform: String,
+    pub local: i8,
+    pub relayed: i8,
+    pub secure: i8,
+    pub address: String,
+    pub public_address: String,
+    pub season_number: Option<String>,
+    pub episode_number: Option<String>,
+    pub quality: String,
+    pub city: String,
+    pub longitude: String,
+    pub latitude: String,
+}
 
 #[derive(Clone, Hash, Eq, PartialEq, Debug)]
 enum PlexHistoryType {
@@ -443,14 +463,42 @@ fn format_plex_session_metrics(
 ) {
     debug!("Formatting {sessions:?} as Prometheus");
     let plex_sessions = Family::<PlexSessionLabels, Gauge<f64, AtomicU64>>::default();
+    let plex_sessions_percentage =
+        Family::<PlexSessionPercentageLabels, Gauge<f64, AtomicU64>>::default();
     registry.register(
         "plex_sessions",
         format!("Plex sessions status"),
         plex_sessions.clone(),
     );
+    registry.register(
+        "plex_sessions_percentage",
+        format!("Plex sessions percentage status"),
+        plex_sessions_percentage.clone(),
+    );
 
     sessions.into_iter().for_each(|(name, sessions)| {
         sessions.into_iter().for_each(|session| {
+            plex_sessions_percentage
+                .get_or_create(&PlexSessionPercentageLabels {
+                    name: name.clone(),
+                    title: session.title.clone(),
+                    user: session.user.clone(),
+                    decision: session.stream_decision.to_string().clone(),
+                    state: session.state.clone(),
+                    platform: session.platform.clone(),
+                    local: session.local as i8,
+                    relayed: session.relayed as i8,
+                    secure: session.secure as i8,
+                    address: session.address.clone(),
+                    public_address: session.location.ip_address.clone(),
+                    season_number: session.season_number.clone(),
+                    episode_number: session.episode_number.clone(),
+                    quality: session.quality.clone(),
+                    city: session.location.city.clone(),
+                    longitude: session.location.longitude.clone(),
+                    latitude: session.location.latitude.clone(),
+                })
+                .set(session.progress as f64);
             plex_sessions
                 .get_or_create(&PlexSessionLabels {
                     name: name.clone(),
