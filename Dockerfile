@@ -14,9 +14,16 @@ RUN cargo install --path .
 FROM debian:trixie-slim
 WORKDIR /app
 ENV ROCKET_ADDRESS=0.0.0.0
+ENV TZ="Europe/Paris"
+ENV USER="homers"
+
 COPY --from=builder /usr/local/cargo/bin/homers /usr/local/bin
 COPY config.toml /app/config.toml
+COPY entrypoint.sh /app/entrypoint.sh
 RUN apt-get update && \
-    apt-get install -y sqlite3 ca-certificates
-USER 1005
+    apt-get install -y sqlite3 ca-certificates && \
+    cp "/usr/share/zoneinfo/${TZ}" /etc/localtime && \ 
+    echo "${TZ}" > /etc/timezone
+USER root
+ENTRYPOINT ["/app/entrypoint.sh"]
 CMD ["homers", "--config", "config.toml"]
