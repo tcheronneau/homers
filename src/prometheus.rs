@@ -8,8 +8,8 @@ use std::collections::HashMap;
 use std::fmt::Write;
 use std::sync::atomic::AtomicU64;
 
-use crate::providers::overseerr::OverseerrRequest;
-use crate::providers::plex::{PlexViews, SessionMetadata};
+use crate::providers::overseerr::{self, OverseerrRequest};
+use crate::providers::plex::{PlexSessions, PlexViews};
 use crate::providers::radarr::RadarrMovie;
 use crate::providers::sonarr::SonarrEpisode;
 use crate::providers::structs::tautulli::Library;
@@ -28,15 +28,8 @@ pub enum TaskResult {
     TautulliLibrary(Vec<Library>),
     Radarr(HashMap<String, Vec<RadarrMovie>>),
     Overseerr(Vec<OverseerrRequest>),
-    PlexHistory(HashMap<String, PlexViews>),
-    PlexSession(HashMap<String, Vec<SessionMetadata>>),
+    PlexSession(HashMap<String, Vec<PlexSessions>>),
     Default,
-}
-
-#[derive(Clone, Hash, Eq, PartialEq, EncodeLabelSet, Debug)]
-struct PlexHistoryLabels {
-    pub name: String,
-    pub kind: PlexHistoryType,
 }
 
 #[derive(Clone, Hash, Eq, PartialEq, EncodeLabelSet, Debug)]
@@ -52,25 +45,32 @@ struct PlexSessionLabels {
     pub secure: i8,
     pub address: String,
     pub public_address: String,
+    pub season_number: Option<String>,
+    pub episode_number: Option<String>,
+    pub quality: String,
+    pub city: String,
+    pub longitude: String,
+    pub latitude: String,
 }
-
-#[derive(Clone, Hash, Eq, PartialEq, Debug)]
-enum PlexHistoryType {
-    EpisodesViewed,
-    MoviesViewed,
-}
-impl prometheus_client::encoding::EncodeLabelValue for PlexHistoryType {
-    fn encode(
-        &self,
-        writer: &mut prometheus_client::encoding::LabelValueEncoder,
-    ) -> Result<(), std::fmt::Error> {
-        let kind = match self {
-            PlexHistoryType::EpisodesViewed => "episodes_viewed",
-            PlexHistoryType::MoviesViewed => "movies_viewed",
-        };
-        writer.write_str(kind)?;
-        Ok(())
-    }
+#[derive(Clone, Hash, Eq, PartialEq, EncodeLabelSet, Debug)]
+struct PlexSessionPercentageLabels {
+    pub name: String,
+    pub title: String,
+    pub user: String,
+    pub decision: String,
+    pub state: String,
+    pub platform: String,
+    pub local: i8,
+    pub relayed: i8,
+    pub secure: i8,
+    pub address: String,
+    pub public_address: String,
+    pub season_number: Option<String>,
+    pub episode_number: Option<String>,
+    pub quality: String,
+    pub city: String,
+    pub longitude: String,
+    pub latitude: String,
 }
 
 #[derive(Clone, Hash, Eq, PartialEq, EncodeLabelSet, Debug)]
@@ -97,7 +97,7 @@ struct TautulliSessionPercentageLabels {
     pub city: String,
 }
 #[derive(Clone, Hash, Eq, PartialEq, EncodeLabelSet, Debug)]
-struct TautulliTotalSessionLabels {}
+struct EmptyLabel {}
 #[derive(Clone, Hash, Eq, PartialEq, EncodeLabelSet, Debug)]
 struct TautulliSessionLabels {
     pub user: String,
@@ -138,6 +138,11 @@ struct OverseerrLabels {
     pub requested_at: String,
 }
 
+#[derive(Clone, Hash, Eq, PartialEq, EncodeLabelSet, Debug)]
+struct OverseerrRequestsLabels {
+    kind: String,
+}
+
 pub fn format_metrics(task_result: Vec<TaskResult>) -> anyhow::Result<String> {
     let mut buffer = String::new();
     let mut registry = Registry::with_prefix("homers");
@@ -157,7 +162,6 @@ pub fn format_metrics(task_result: Vec<TaskResult>) -> anyhow::Result<String> {
             }
             TaskResult::Radarr(movies) => format_radarr_metrics(movies, &mut registry),
             TaskResult::Overseerr(overseerr) => format_overseerr_metrics(overseerr, &mut registry),
-            TaskResult::PlexHistory(views) => format_plex_history_metrics(views, &mut registry),
             TaskResult::PlexSession(sessions) => {
                 format_plex_session_metrics(sessions, &mut registry)
             }
@@ -227,8 +231,7 @@ fn format_tautulli_session_metrics(sessions: Vec<SessionSummary>, registry: &mut
     let tautulli_session = Family::<TautulliSessionLabels, Gauge<f64, AtomicU64>>::default();
     let tautulli_session_percentage =
         Family::<TautulliSessionPercentageLabels, Gauge<f64, AtomicU64>>::default();
-    let tautulli_total_session =
-        Family::<TautulliTotalSessionLabels, Gauge<f64, AtomicU64>>::default();
+    let tautulli_total_session = Family::<EmptyLabel, Gauge<f64, AtomicU64>>::default();
     registry.register(
         "tautulli_session",
         format!("Tautulli session status"),
@@ -240,10 +243,10 @@ fn format_tautulli_session_metrics(sessions: Vec<SessionSummary>, registry: &mut
         tautulli_session_percentage.clone(),
     );
     let total_sessions = sessions.len();
-    let labels = TautulliTotalSessionLabels {};
+    let labels = EmptyLabel {};
     tautulli_total_session
         .get_or_create(&labels)
-        .set(total_sessions as f64);
+        .inc_by(total_sessions as f64);
     sessions.into_iter().for_each(|session| {
         let labels = TautulliSessionPercentageLabels {
             user: session.user.clone(),
@@ -322,14 +325,44 @@ fn format_radarr_metrics(radarr_hash: HashMap<String, Vec<RadarrMovie>>, registr
         });
     });
 }
+
 fn format_overseerr_metrics(requests: Vec<OverseerrRequest>, registry: &mut Registry) {
     debug!("Formatting {requests:?} as Prometheus");
     let overseerr_request = Family::<OverseerrLabels, Gauge<f64, AtomicU64>>::default();
+    let mut registy_request = HashMap::new();
+    let mut registy_media = HashMap::new();
     registry.register(
         "overseerr_requests",
         format!("overseerr requests status"),
         overseerr_request.clone(),
     );
+
+    overseerr::MediaStatus::get_all()
+        .into_iter()
+        .for_each(|status| {
+            registy_media.insert(
+                status.to_string(),
+                Family::<OverseerrRequestsLabels, Gauge<f64, AtomicU64>>::default(),
+            );
+            registry.register(
+                &format!("overseerr_requests_{}", status.to_string()),
+                format!("{}", status.to_description()),
+                registy_media.get(&status.to_string()).unwrap().clone(),
+            );
+        });
+    overseerr::RequestStatus::get_all()
+        .into_iter()
+        .for_each(|status| {
+            registy_request.insert(
+                status.to_string(),
+                Family::<OverseerrRequestsLabels, Gauge<f64, AtomicU64>>::default(),
+            );
+            registry.register(
+                &format!("overseerr_requests_{}", status.to_string()),
+                format!("{}", status.to_description()),
+                registy_request.get(&status.to_string()).unwrap().clone(),
+            );
+        });
     requests.into_iter().for_each(|request| {
         let labels = OverseerrLabels {
             media_type: request.media_type.clone(),
@@ -341,60 +374,99 @@ fn format_overseerr_metrics(requests: Vec<OverseerrRequest>, registry: &mut Regi
         overseerr_request
             .get_or_create(&labels)
             .set(request.media_status as f64);
+        match request.status.into() {
+            overseerr::RequestStatus::Pending => {
+                registy_request
+                    .get(&overseerr::RequestStatus::Pending.to_string())
+                    .unwrap()
+                    .get_or_create(&OverseerrRequestsLabels {
+                        kind: overseerr::RequestStatus::Pending.to_string(),
+                    })
+                    .inc();
+            }
+            overseerr::RequestStatus::Approved => {
+                registy_request
+                    .get(&overseerr::RequestStatus::Approved.to_string())
+                    .unwrap()
+                    .get_or_create(&OverseerrRequestsLabels {
+                        kind: overseerr::RequestStatus::Approved.to_string(),
+                    })
+                    .inc();
+            }
+            overseerr::RequestStatus::Declined => {
+                registy_request
+                    .get(&overseerr::RequestStatus::Declined.to_string())
+                    .unwrap()
+                    .get_or_create(&OverseerrRequestsLabels {
+                        kind: overseerr::RequestStatus::Declined.to_string(),
+                    })
+                    .inc();
+            }
+        };
     });
 }
 
-fn format_plex_history_metrics(views: HashMap<String, PlexViews>, registry: &mut Registry) {
-    debug!("Formatting {views:?} as Prometheus");
-    let plex_views = Family::<PlexHistoryLabels, Gauge<f64, AtomicU64>>::default();
-    registry.register(
-        "plex_views",
-        format!("Plex views status"),
-        plex_views.clone(),
-    );
-
-    views.into_iter().for_each(|(name, views)| {
-        plex_views
-            .get_or_create(&PlexHistoryLabels {
-                name: name.clone(),
-                kind: PlexHistoryType::EpisodesViewed,
-            })
-            .set(views.episodes_viewed as f64);
-        plex_views
-            .get_or_create(&PlexHistoryLabels {
-                name: name.clone(),
-                kind: PlexHistoryType::MoviesViewed,
-            })
-            .set(views.movies_viewed as f64);
-    });
-}
 fn format_plex_session_metrics(
-    sessions: HashMap<String, Vec<SessionMetadata>>,
+    sessions: HashMap<String, Vec<PlexSessions>>,
     registry: &mut Registry,
 ) {
     debug!("Formatting {sessions:?} as Prometheus");
     let plex_sessions = Family::<PlexSessionLabels, Gauge<f64, AtomicU64>>::default();
+    let plex_sessions_percentage =
+        Family::<PlexSessionPercentageLabels, Gauge<f64, AtomicU64>>::default();
     registry.register(
         "plex_sessions",
         format!("Plex sessions status"),
         plex_sessions.clone(),
     );
+    registry.register(
+        "plex_sessions_percentage",
+        format!("Plex sessions percentage status"),
+        plex_sessions_percentage.clone(),
+    );
 
     sessions.into_iter().for_each(|(name, sessions)| {
         sessions.into_iter().for_each(|session| {
+            plex_sessions_percentage
+                .get_or_create(&PlexSessionPercentageLabels {
+                    name: name.clone(),
+                    title: session.title.clone(),
+                    user: session.user.clone(),
+                    decision: session.stream_decision.to_string().clone(),
+                    state: session.state.clone(),
+                    platform: session.platform.clone(),
+                    local: session.local as i8,
+                    relayed: session.relayed as i8,
+                    secure: session.secure as i8,
+                    address: session.address.clone(),
+                    public_address: session.location.ip_address.clone(),
+                    season_number: session.season_number.clone(),
+                    episode_number: session.episode_number.clone(),
+                    quality: session.quality.clone(),
+                    city: session.location.city.clone(),
+                    longitude: session.location.longitude.clone(),
+                    latitude: session.location.latitude.clone(),
+                })
+                .set(session.progress as f64);
             plex_sessions
                 .get_or_create(&PlexSessionLabels {
                     name: name.clone(),
                     title: session.title.clone(),
-                    user: session.user.title.clone(),
-                    decision: session.media[0].part[0].decision.clone(),
-                    state: session.player.state_field.clone(),
-                    platform: session.player.platform.clone(),
-                    local: session.player.local as i8,
-                    relayed: session.player.relayed as i8,
-                    secure: session.player.secure as i8,
-                    address: session.player.address.clone(),
-                    public_address: session.player.remote_public_address.clone(),
+                    user: session.user.clone(),
+                    decision: session.stream_decision.to_string().clone(),
+                    state: session.state.clone(),
+                    platform: session.platform.clone(),
+                    local: session.local as i8,
+                    relayed: session.relayed as i8,
+                    secure: session.secure as i8,
+                    address: session.address.clone(),
+                    public_address: session.location.ip_address.clone(),
+                    season_number: session.season_number.clone(),
+                    episode_number: session.episode_number.clone(),
+                    quality: session.quality.clone(),
+                    city: session.location.city.clone(),
+                    longitude: session.location.longitude.clone(),
+                    latitude: session.location.latitude.clone(),
                 })
                 .set(1.0);
         });

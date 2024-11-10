@@ -26,6 +26,97 @@ pub struct Overseerr {
     #[serde(skip)]
     client: reqwest::Client,
 }
+
+pub enum RequestStatus {
+    Pending,
+    Approved,
+    Declined,
+}
+impl From<i64> for RequestStatus {
+    fn from(status: i64) -> Self {
+        match status {
+            1 => RequestStatus::Pending,
+            2 => RequestStatus::Approved,
+            3 => RequestStatus::Declined,
+            _ => RequestStatus::Pending,
+        }
+    }
+}
+impl RequestStatus {
+    pub fn to_string(&self) -> String {
+        match self {
+            RequestStatus::Pending => "pending_approval".to_string(),
+            RequestStatus::Approved => "approved".to_string(),
+            RequestStatus::Declined => "declined".to_string(),
+        }
+    }
+    pub fn to_description(&self) -> String {
+        match self {
+            RequestStatus::Pending => "Overseerr request pending approval".to_string(),
+            RequestStatus::Approved => "Overseerr request approved".to_string(),
+            RequestStatus::Declined => "Overseerr request declined".to_string(),
+        }
+    }
+
+    pub fn get_all() -> Vec<RequestStatus> {
+        vec![
+            RequestStatus::Pending,
+            RequestStatus::Approved,
+            RequestStatus::Declined,
+        ]
+    }
+}
+
+pub enum MediaStatus {
+    Unknown,
+    Pending,
+    Processing,
+    PartiallyAvailable,
+    Available,
+}
+impl MediaStatus {
+    pub fn to_string(&self) -> String {
+        match self {
+            MediaStatus::Unknown => "unknown".to_string(),
+            MediaStatus::Pending => "pending".to_string(),
+            MediaStatus::Processing => "processing".to_string(),
+            MediaStatus::PartiallyAvailable => "partially_available".to_string(),
+            MediaStatus::Available => "available".to_string(),
+        }
+    }
+    pub fn to_description(&self) -> String {
+        match self {
+            MediaStatus::Unknown => "Overseerr media status unknown".to_string(),
+            MediaStatus::Pending => "Overseerr media status pending".to_string(),
+            MediaStatus::Processing => "Overseerr media status processing".to_string(),
+            MediaStatus::PartiallyAvailable => {
+                "Overseerr media status partially available".to_string()
+            }
+            MediaStatus::Available => "Overseerr media status available".to_string(),
+        }
+    }
+
+    pub fn from_i64(status: i64) -> MediaStatus {
+        match status {
+            1 => MediaStatus::Unknown,
+            2 => MediaStatus::Pending,
+            3 => MediaStatus::Processing,
+            4 => MediaStatus::PartiallyAvailable,
+            5 => MediaStatus::Available,
+            _ => MediaStatus::Unknown,
+        }
+    }
+    pub fn get_all() -> Vec<MediaStatus> {
+        vec![
+            MediaStatus::Unknown,
+            MediaStatus::Pending,
+            MediaStatus::Processing,
+            MediaStatus::PartiallyAvailable,
+            MediaStatus::Available,
+        ]
+    }
+}
+
 impl Overseerr {
     pub fn new(address: &str, api_key: &str, requests: i64) -> Result<Overseerr, ProviderError> {
         let mut headers = header::HeaderMap::new();
