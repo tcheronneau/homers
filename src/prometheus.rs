@@ -28,15 +28,8 @@ pub enum TaskResult {
     TautulliLibrary(Vec<Library>),
     Radarr(HashMap<String, Vec<RadarrMovie>>),
     Overseerr(Vec<OverseerrRequest>),
-    PlexHistory(HashMap<String, PlexViews>),
     PlexSession(HashMap<String, Vec<PlexSessions>>),
     Default,
-}
-
-#[derive(Clone, Hash, Eq, PartialEq, EncodeLabelSet, Debug)]
-struct PlexHistoryLabels {
-    pub name: String,
-    pub kind: PlexHistoryType,
 }
 
 #[derive(Clone, Hash, Eq, PartialEq, EncodeLabelSet, Debug)]
@@ -78,25 +71,6 @@ struct PlexSessionPercentageLabels {
     pub city: String,
     pub longitude: String,
     pub latitude: String,
-}
-
-#[derive(Clone, Hash, Eq, PartialEq, Debug)]
-enum PlexHistoryType {
-    EpisodesViewed,
-    MoviesViewed,
-}
-impl prometheus_client::encoding::EncodeLabelValue for PlexHistoryType {
-    fn encode(
-        &self,
-        writer: &mut prometheus_client::encoding::LabelValueEncoder,
-    ) -> Result<(), std::fmt::Error> {
-        let kind = match self {
-            PlexHistoryType::EpisodesViewed => "episodes_viewed",
-            PlexHistoryType::MoviesViewed => "movies_viewed",
-        };
-        writer.write_str(kind)?;
-        Ok(())
-    }
 }
 
 #[derive(Clone, Hash, Eq, PartialEq, EncodeLabelSet, Debug)]
@@ -188,7 +162,6 @@ pub fn format_metrics(task_result: Vec<TaskResult>) -> anyhow::Result<String> {
             }
             TaskResult::Radarr(movies) => format_radarr_metrics(movies, &mut registry),
             TaskResult::Overseerr(overseerr) => format_overseerr_metrics(overseerr, &mut registry),
-            TaskResult::PlexHistory(views) => format_plex_history_metrics(views, &mut registry),
             TaskResult::PlexSession(sessions) => {
                 format_plex_session_metrics(sessions, &mut registry)
             }
@@ -433,30 +406,6 @@ fn format_overseerr_metrics(requests: Vec<OverseerrRequest>, registry: &mut Regi
     });
 }
 
-fn format_plex_history_metrics(views: HashMap<String, PlexViews>, registry: &mut Registry) {
-    debug!("Formatting {views:?} as Prometheus");
-    let plex_views = Family::<PlexHistoryLabels, Gauge<f64, AtomicU64>>::default();
-    registry.register(
-        "plex_views",
-        format!("Plex views status"),
-        plex_views.clone(),
-    );
-
-    views.into_iter().for_each(|(name, views)| {
-        plex_views
-            .get_or_create(&PlexHistoryLabels {
-                name: name.clone(),
-                kind: PlexHistoryType::EpisodesViewed,
-            })
-            .set(views.episodes_viewed as f64);
-        plex_views
-            .get_or_create(&PlexHistoryLabels {
-                name: name.clone(),
-                kind: PlexHistoryType::MoviesViewed,
-            })
-            .set(views.movies_viewed as f64);
-    });
-}
 fn format_plex_session_metrics(
     sessions: HashMap<String, Vec<PlexSessions>>,
     registry: &mut Registry,
