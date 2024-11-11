@@ -11,6 +11,37 @@ pub enum Metadata {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum MediaContainer {
+    LibraryContainer(LibraryContainer),
+    LibraryItemsContainer(LibraryItemsContainer),
+    ActivityContainer(ActivityContainer),
+    Default(serde_json::Value),
+}
+
+#[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum LibraryType {
+    Show,
+    Movie,
+    Photo,
+    Artist,
+    #[default]
+    Default,
+}
+impl Display for LibraryType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            LibraryType::Show => write!(f, "Show"),
+            LibraryType::Movie => write!(f, "Movie"),
+            LibraryType::Photo => write!(f, "Photo"),
+            LibraryType::Artist => write!(f, "Music"),
+            LibraryType::Default => write!(f, "Unknown"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PlexResponse {
     //#[serde(rename = "MediaContainer",deserialize_with = "deserialize_media_container")]
@@ -20,10 +51,38 @@ pub struct PlexResponse {
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct MediaContainer {
+pub struct ActivityContainer {
     pub size: i64,
     #[serde(rename = "Metadata")]
     pub metadata: Vec<Metadata>,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LibraryContainer {
+    pub size: i64,
+    #[serde(rename = "Directory")]
+    pub directory: Vec<Directory>,
+}
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LibraryItemsContainer {
+    pub size: i64,
+    pub allow_sync: bool,
+    #[serde(rename = "librarySectionID")]
+    pub library_section_id: i64,
+    pub library_section_title: String,
+    #[serde(rename = "librarySectionUUID")]
+    pub library_section_uuid: String,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Directory {
+    pub key: String,
+    pub title: String,
+    #[serde(rename = "type")]
+    pub type_field: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -38,6 +97,7 @@ pub struct HistoryMetadata {
 #[serde(rename_all = "camelCase")]
 pub struct SessionMetadata {
     pub title: String,
+    pub original_title: Option<String>,
     pub parent_title: Option<String>,
     pub grand_parent_title: Option<String>,
     pub index: Option<i64>,
@@ -63,22 +123,15 @@ impl SessionMetadata {
     }
     pub async fn to(&self) -> PlexSessions {
         let media_type = self.type_field.clone();
-        let title = match &self.grand_parent_title {
-            Some(title) => title.clone(),
-            None => match &self.parent_title {
-                Some(title) => title.clone(),
-                None => self.title.clone(),
-            },
-        };
         let user = self.user.title.clone();
         let state = self.player.state_field.clone();
         let progress = self.progress();
         let quality = self.media[0].part[0].stream[0].display_title.clone();
-        let season_number = match self.index {
+        let season_number = match self.parent_index {
             Some(index) => Some(index.to_string()),
             None => None,
         };
-        let episode_number = match self.parent_index {
+        let episode_number = match self.index {
             Some(index) => Some(index.to_string()),
             None => None,
         };
@@ -89,23 +142,77 @@ impl SessionMetadata {
         let secure = self.player.secure;
         let relayed = self.player.relayed;
         let platform = self.player.platform.clone();
-        PlexSessions {
-            title,
-            user,
-            stream_decision,
-            media_type,
-            state,
-            progress,
-            quality,
-            season_number,
-            episode_number,
-            location,
-            address,
-            local,
-            secure,
-            relayed,
-            platform,
+        let title = self.original_title.clone().unwrap_or(self.title.clone());
+        match &media_type[..] {
+            "episode" => PlexSessions {
+                title,
+                user,
+                stream_decision,
+                media_type,
+                state,
+                progress,
+                quality,
+                season_number,
+                episode_number,
+                location,
+                address,
+                local,
+                secure,
+                relayed,
+                platform,
+            },
+            "movie" => PlexSessions {
+                title,
+                user,
+                stream_decision,
+                media_type,
+                state,
+                progress,
+                quality,
+                season_number: None,
+                episode_number: None,
+                location,
+                address,
+                local,
+                secure,
+                relayed,
+                platform,
+            },
+            _ => PlexSessions {
+                title,
+                user,
+                stream_decision,
+                media_type,
+                state,
+                progress,
+                quality,
+                season_number: None,
+                episode_number: None,
+                location,
+                address,
+                local,
+                secure,
+                relayed,
+                platform,
+            },
         }
+        //PlexSessions {
+        //    title,
+        //    user,
+        //    stream_decision,
+        //    media_type,
+        //    state,
+        //    progress,
+        //    quality,
+        //    season_number,
+        //    episode_number,
+        //    location,
+        //    address,
+        //    local,
+        //    secure,
+        //    relayed,
+        //    platform,
+        //}
     }
 }
 
