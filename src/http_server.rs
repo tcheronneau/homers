@@ -102,6 +102,12 @@ async fn process_task(task: Task) -> Result<TaskResult, JoinError> {
             let result = HashMap::from([(name.to_string(), result)]);
             Ok(TaskResult::PlexSession(result))
         }
+        Task::PlexLibrary(plex) => {
+            let name = &plex.name;
+            let result = plex.get_all_library_size().await;
+            let result = HashMap::from([(name.to_string(), result)]);
+            Ok(TaskResult::PlexLibrary(result))
+        }
         Task::Default => Ok(TaskResult::Default),
     }
 }

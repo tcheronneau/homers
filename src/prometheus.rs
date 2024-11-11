@@ -9,7 +9,7 @@ use std::fmt::Write;
 use std::sync::atomic::AtomicU64;
 
 use crate::providers::overseerr::{self, OverseerrRequest};
-use crate::providers::plex::{PlexSessions, PlexViews};
+use crate::providers::plex::{LibraryInfos, PlexSessions};
 use crate::providers::radarr::RadarrMovie;
 use crate::providers::sonarr::SonarrEpisode;
 use crate::providers::structs::tautulli::Library;
@@ -29,6 +29,7 @@ pub enum TaskResult {
     Radarr(HashMap<String, Vec<RadarrMovie>>),
     Overseerr(Vec<OverseerrRequest>),
     PlexSession(HashMap<String, Vec<PlexSessions>>),
+    PlexLibrary(HashMap<String, Vec<LibraryInfos>>),
     Default,
 }
 
@@ -42,6 +43,7 @@ struct PlexSessionLabels {
     pub platform: String,
     pub local: i8,
     pub relayed: i8,
+    pub media_type: String,
     pub secure: i8,
     pub address: String,
     pub public_address: String,
@@ -64,6 +66,7 @@ struct PlexSessionPercentageLabels {
     pub relayed: i8,
     pub secure: i8,
     pub address: String,
+    pub media_type: String,
     pub public_address: String,
     pub season_number: Option<String>,
     pub episode_number: Option<String>,
@@ -71,6 +74,12 @@ struct PlexSessionPercentageLabels {
     pub city: String,
     pub longitude: String,
     pub latitude: String,
+}
+#[derive(Clone, Hash, Eq, PartialEq, EncodeLabelSet, Debug)]
+struct PlexLibraryLabels {
+    pub name: String,
+    pub library_name: String,
+    pub library_type: String,
 }
 
 #[derive(Clone, Hash, Eq, PartialEq, EncodeLabelSet, Debug)]
@@ -164,6 +173,9 @@ pub fn format_metrics(task_result: Vec<TaskResult>) -> anyhow::Result<String> {
             TaskResult::Overseerr(overseerr) => format_overseerr_metrics(overseerr, &mut registry),
             TaskResult::PlexSession(sessions) => {
                 format_plex_session_metrics(sessions, &mut registry)
+            }
+            TaskResult::PlexLibrary(libraries) => {
+                format_plex_library_metrics(libraries, &mut registry)
             }
             TaskResult::Default => return Err(anyhow::anyhow!("No task result")),
         }
@@ -442,6 +454,7 @@ fn format_plex_session_metrics(
                     public_address: session.location.ip_address.clone(),
                     season_number: session.season_number.clone(),
                     episode_number: session.episode_number.clone(),
+                    media_type: session.media_type.clone(),
                     quality: session.quality.clone(),
                     city: session.location.city.clone(),
                     longitude: session.location.longitude.clone(),
@@ -460,6 +473,7 @@ fn format_plex_session_metrics(
                     relayed: session.relayed as i8,
                     secure: session.secure as i8,
                     address: session.address.clone(),
+                    media_type: session.media_type.clone(),
                     public_address: session.location.ip_address.clone(),
                     season_number: session.season_number.clone(),
                     episode_number: session.episode_number.clone(),
@@ -469,6 +483,29 @@ fn format_plex_session_metrics(
                     latitude: session.location.latitude.clone(),
                 })
                 .set(1.0);
+        });
+    });
+}
+fn format_plex_library_metrics(
+    libraries: HashMap<String, Vec<LibraryInfos>>,
+    registry: &mut Registry,
+) {
+    debug!("Formatting {libraries:?} as Prometheus");
+    let plex_library = Family::<PlexLibraryLabels, Gauge<f64, AtomicU64>>::default();
+    registry.register(
+        "plex_library",
+        format!("Plex library status"),
+        plex_library.clone(),
+    );
+    libraries.into_iter().for_each(|(name, library)| {
+        library.into_iter().for_each(|lib| {
+            plex_library
+                .get_or_create(&PlexLibraryLabels {
+                    name: name.clone(),
+                    library_name: lib.library_name.clone(),
+                    library_type: lib.library_type.clone(),
+                })
+                .set(lib.library_size as f64);
         });
     });
 }
