@@ -7,6 +7,7 @@ use std::fmt::Display;
 pub enum Metadata {
     SessionMetadata(SessionMetadata),
     HistoryMetadata(HistoryMetadata),
+    LibraryMetadata(LibraryMetadata),
     Default(serde_json::Value),
 }
 
@@ -74,6 +75,8 @@ pub struct LibraryItemsContainer {
     pub library_section_title: String,
     #[serde(rename = "librarySectionUUID")]
     pub library_section_uuid: String,
+    #[serde(rename = "Metadata")]
+    pub metadata: Vec<Metadata>,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -83,6 +86,16 @@ pub struct Directory {
     pub title: String,
     #[serde(rename = "type")]
     pub type_field: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LibraryMetadata {
+    #[serde(rename = "type")]
+    pub type_field: String,
+    pub title: String,
+    pub leaf_count: Option<i64>,
+    pub child_count: Option<i64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -142,7 +155,10 @@ impl SessionMetadata {
         let secure = self.player.secure;
         let relayed = self.player.relayed;
         let platform = self.player.platform.clone();
-        let title = self.original_title.clone().unwrap_or(self.title.clone());
+        let title = match &self.grand_parent_title {
+            Some(parent) => parent.to_string(),
+            None => self.title.clone(),
+        };
         match &media_type[..] {
             "episode" => PlexSessions {
                 title,
@@ -196,23 +212,6 @@ impl SessionMetadata {
                 platform,
             },
         }
-        //PlexSessions {
-        //    title,
-        //    user,
-        //    stream_decision,
-        //    media_type,
-        //    state,
-        //    progress,
-        //    quality,
-        //    season_number,
-        //    episode_number,
-        //    location,
-        //    address,
-        //    local,
-        //    secure,
-        //    relayed,
-        //    platform,
-        //}
     }
 }
 

@@ -80,6 +80,8 @@ struct PlexLibraryLabels {
     pub name: String,
     pub library_name: String,
     pub library_type: String,
+    pub season_count: Option<i64>,
+    pub episode_count: Option<i64>,
 }
 
 #[derive(Clone, Hash, Eq, PartialEq, EncodeLabelSet, Debug)]
@@ -504,6 +506,8 @@ fn format_plex_library_metrics(
                     name: name.clone(),
                     library_name: lib.library_name.clone(),
                     library_type: lib.library_type.clone(),
+                    season_count: lib.library_child_size,
+                    episode_count: lib.library_grand_child_size,
                 })
                 .set(lib.library_size as f64);
         });

@@ -4,7 +4,7 @@ use reqwest::header;
 use serde::{Deserialize, Serialize};
 
 use crate::providers::structs::plex::{
-    LibraryContainer, LibraryItemsContainer, Metadata, PlexResponse,
+    LibraryContainer, LibraryItemsContainer, LibraryType, Metadata, PlexResponse,
 };
 pub use crate::providers::structs::plex::{MediaContainer, PlexSessions};
 use crate::providers::{Provider, ProviderError, ProviderErrorKind};
@@ -19,6 +19,8 @@ pub struct LibraryInfos {
     pub library_name: String,
     pub library_type: String,
     pub library_size: i64,
+    pub library_child_size: Option<i64>,
+    pub library_grand_child_size: Option<i64>,
 }
 
 #[derive(Debug, Deserialize, Clone, Serialize)]
@@ -141,11 +143,39 @@ impl Plex {
                     return Vec::new();
                 }
             };
-            library_infos.push(LibraryInfos {
-                library_name: item.title.to_string(),
-                library_type: item.type_field.to_string(),
-                library_size: library_items_container.size,
-            });
+            match &item.type_field[..] {
+                "show" => {
+                    let (child_sum, leaf_sum) = library_items_container.metadata.iter().fold(
+                        (0, 0),
+                        |(mut child_acc, mut leaf_acc), child| {
+                            match child {
+                                Metadata::LibraryMetadata(meta) => {
+                                    child_acc += meta.child_count.unwrap_or(0);
+                                    leaf_acc += meta.leaf_count.unwrap_or(0);
+                                }
+                                _ => {
+                                    error!("Metadata received does not match library metadata");
+                                }
+                            }
+                            (child_acc, leaf_acc)
+                        },
+                    );
+                    library_infos.push(LibraryInfos {
+                        library_name: item.title.to_string(),
+                        library_type: item.type_field.to_string(),
+                        library_size: library_items_container.size,
+                        library_child_size: Some(child_sum),
+                        library_grand_child_size: Some(leaf_sum),
+                    });
+                }
+                _ => library_infos.push(LibraryInfos {
+                    library_name: item.title.to_string(),
+                    library_type: item.type_field.to_string(),
+                    library_size: library_items_container.size,
+                    library_child_size: None,
+                    library_grand_child_size: None,
+                }),
+            }
         }
         library_infos
     }
