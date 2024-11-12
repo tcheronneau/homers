@@ -1,8 +1,5 @@
 # HOMERS
 
-![dev build](https://github.com/github/tcheronneau/homers/workflows/build.yml/badge.svg?branch=dev)
-![latest build](https://github.com/tcheronneau/homers/actions/workflows/build-latest.yml/badge.svg?branch=main)
-
 This project has the purposed to be a replacement for [Varken](https://github.com/Boerderij/Varken).   
 Since InfluxDB is not a good option for me, I decided to use prometheus and to build an exporter. 
 
