@@ -1,17 +1,17 @@
-use rocket::{launch, Build, Rocket};
-use clap::{arg, command, Parser};
-use std::path::PathBuf;
 use anyhow::Result;
+use clap::{arg, command, Parser};
+use rocket::{launch, Build, Rocket};
+use std::path::PathBuf;
 
-mod http_server;
 mod config;
-mod providers;
+mod http_server;
 mod prometheus;
+mod providers;
 
+use crate::providers::overseerr::Overseerr;
+use crate::providers::radarr::Radarr;
 use crate::providers::sonarr::Sonarr;
 use crate::providers::tautulli::Tautulli;
-use crate::providers::radarr::Radarr;
-use crate::providers::overseerr::Overseerr;
 
 #[cfg(debug_assertions)]
 #[derive(Copy, Clone, Debug, Default)]
@@ -41,19 +41,19 @@ struct Args {
 
 //#[tokio::main]
 //async fn main() {
-    //let tautulli = Tautulli::new(config.tautulli.address, config.tautulli.api_key);
-    //let sonarr = Sonarr::new(config.sonarr.address, config.sonarr.api_key);
-    //let session_summaries = tautulli.get_session_summary().await;
+//let tautulli = Tautulli::new(config.tautulli.address, config.tautulli.api_key);
+//let sonarr = Sonarr::new(config.sonarr.address, config.sonarr.api_key);
+//let session_summaries = tautulli.get_session_summary().await;
 
-    //
-    //for item in session_summaries.expect("Failed to get session summaries") {
-    //    println!("{}", item);
-    //}
-    //let shows = sonarr.get_today_shows().await;
-    ////let status = sonarr.debug("system/status").await;
-    //for item in shows {
-    //    println!("{}", item);
-    //}
+//
+//for item in session_summaries.expect("Failed to get session summaries") {
+//    println!("{}", item);
+//}
+//let shows = sonarr.get_today_shows().await;
+////let status = sonarr.debug("system/status").await;
+//for item in shows {
+//    println!("{}", item);
+//}
 //}
 //#[launch]
 //pub async fn start_server() -> Rocket<Build> {
@@ -68,7 +68,7 @@ struct Args {
 //    let config = config::read(args.config.clone(), log_level).expect("Config successfully read");
 //    http_server::configure_rocket(config).await
 #[tokio::main]
-async fn main() -> Result<()>{
+async fn main() -> Result<()> {
     //let sonarr_config = config.sonarr.clone().expect("Sonarr config not found");
     //let sonarr = Sonarr::new(sonarr_config.address, sonarr_config.api_key);
     //let shows = sonarr.get_today_shows();
@@ -81,12 +81,29 @@ async fn main() -> Result<()>{
         .log_level()
         .expect("Log level cannot be not available");
     let config = config::read(args.config.clone(), log_level)?;
-    let sonarr = config.sonarr.expect("Sonarr config not found");
-    let sonarr = Sonarr::new(sonarr.address, sonarr.api_key)?;
-    let missing = sonarr.get_last_week_missing_shows().await?;
-    for item in missing {
-        println!("{}", item);
+    let plex = config.plex.expect("plex config not found");
+    for (name, p) in plex {
+        let plex = providers::plex::Plex::new(&name, &p.address, &p.token)?;
+        let history = match plex.get_history().await {
+            Ok(history) => history,
+            Err(e) => {
+                eprintln!("Failed to get history: {}", e);
+                std::process::exit(1);
+            }
+        };
+        let mut count_movie = 0;
+        let mut episode_count = 0;
+        history.media_container.metadata.iter().for_each(|item| {
+            if item.type_field == "episode" {
+                episode_count += 1;
+            } else if item.type_field == "movie" {
+                count_movie += 1;
+            }
+        });
+        println!("Movies watch: {}", count_movie);
+        println!("Episodes watch: {}", episode_count);
     }
+
     //let overseerr_cfg = config.overseerr.clone().expect("Radarr config not found");
     //let overseerr = Overseerr::new(overseerr_cfg.address, overseerr_cfg.api_key)?;
     //let requests = overseerr.get_overseerr_requests()?;

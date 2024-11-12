@@ -1,4 +1,5 @@
 pub mod overseerr;
+pub mod plex;
 pub mod radarr;
 pub mod sonarr;
 pub mod structs;
@@ -20,6 +21,7 @@ pub enum Provider {
     Tautulli,
     //Unifi,
     Reqwest,
+    Plex,
 }
 impl std::fmt::Display for Provider {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -28,6 +30,7 @@ impl std::fmt::Display for Provider {
             Provider::Sonarr => write!(f, "Sonarr"),
             Provider::Overseerr => write!(f, "Overseerr"),
             Provider::Tautulli => write!(f, "Tautulli"),
+            Provider::Plex => write!(f, "Plex"),
             //Provider::Unifi => write!(f, "Unifi"),
             Provider::Reqwest => write!(f, "Reqwest"),
         }

@@ -45,7 +45,6 @@ pub async fn configure_rocket(config: Config) -> Rocket<Build> {
         .unwrap_or_else(exit_if_handle_fatal)
         .unwrap_or_else(exit_if_handle_fatal);
     rocket::custom(config.http)
-        .manage(config.sonarr)
         .manage(tasks)
         .mount("/", routes![index, metrics])
 }
@@ -96,6 +95,18 @@ async fn process_task(task: Task) -> Result<TaskResult, JoinError> {
         Task::Overseerr(overseerr) => {
             let result = overseerr.get_overseerr_requests().await;
             Ok(TaskResult::Overseerr(result))
+        }
+        Task::PlexSession(plex) => {
+            let name = &plex.name;
+            let result = plex.get_current_sessions().await;
+            let result = HashMap::from([(name.to_string(), result)]);
+            Ok(TaskResult::PlexSession(result))
+        }
+        Task::PlexLibrary(plex) => {
+            let name = &plex.name;
+            let result = plex.get_all_library_size().await;
+            let result = HashMap::from([(name.to_string(), result)]);
+            Ok(TaskResult::PlexLibrary(result))
         }
         Task::Default => Ok(TaskResult::Default),
     }

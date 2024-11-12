@@ -1,0 +1,29 @@
+# https://taskfile.dev
+
+version: '3'
+
+vars:
+  DOCKER_TAG: latest
+
+tasks:
+  build: 
+    cmds:
+      - cmd: docker build -t mcth/homers:{{.DOCKER_TAG}} .
+  push:
+    cmds:
+      - cmd: docker push mcth/homers:{{.DOCKER_TAG}}
+  build_alpha:
+    cmds:
+      - task: build
+        vars:
+          DOCKER_TAG: alpha
+      - task: push
+        vars:
+          DOCKER_TAG: alpha
+  build_multi_arch:
+    cmds:
+      - cmd: docker buildx build --platform linux/amd64,linux/arm64 -t mcth/homers:{{.DOCKER_TAG}} .
+  default:
+    cmds:
+      - task: build
+      - task: push

@@ -1,5 +1,6 @@
 /target
 *local*
+*home*
 result
 .envrc
 .direnv/*

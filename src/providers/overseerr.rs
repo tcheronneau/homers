@@ -10,9 +10,9 @@ use crate::providers::{Provider, ProviderError, ProviderErrorKind};
 pub struct OverseerrRequest {
     pub media_type: String,
     pub media_id: i64,
-    pub status: i64,
+    pub status: RequestStatus,
     pub requested_by: String,
-    pub media_status: i64,
+    pub media_status: MediaStatus,
     pub media_title: String,
     pub requested_at: String,
 }
@@ -26,6 +26,108 @@ pub struct Overseerr {
     #[serde(skip)]
     client: reqwest::Client,
 }
+
+#[derive(Debug, Deserialize, Clone, Serialize)]
+pub enum RequestStatus {
+    Pending,
+    Approved,
+    Declined,
+}
+impl From<i64> for RequestStatus {
+    fn from(status: i64) -> Self {
+        match status {
+            1 => RequestStatus::Pending,
+            2 => RequestStatus::Approved,
+            3 => RequestStatus::Declined,
+            _ => RequestStatus::Pending,
+        }
+    }
+}
+impl RequestStatus {
+    pub fn as_f64(&self) -> f64 {
+        match self {
+            RequestStatus::Pending => 1.0,
+            RequestStatus::Approved => 2.0,
+            RequestStatus::Declined => 3.0,
+        }
+    }
+    pub fn to_string(&self) -> String {
+        match self {
+            RequestStatus::Pending => "pending_approval".to_string(),
+            RequestStatus::Approved => "approved".to_string(),
+            RequestStatus::Declined => "declined".to_string(),
+        }
+    }
+    pub fn _to_description(&self) -> String {
+        match self {
+            RequestStatus::Pending => "Overseerr request pending approval".to_string(),
+            RequestStatus::Approved => "Overseerr request approved".to_string(),
+            RequestStatus::Declined => "Overseerr request declined".to_string(),
+        }
+    }
+
+    pub fn _get_all() -> Vec<RequestStatus> {
+        vec![
+            RequestStatus::Pending,
+            RequestStatus::Approved,
+            RequestStatus::Declined,
+        ]
+    }
+}
+
+#[derive(Debug, Deserialize, Clone, Serialize)]
+pub enum MediaStatus {
+    Unknown,
+    Pending,
+    Processing,
+    PartiallyAvailable,
+    Available,
+}
+impl From<i64> for MediaStatus {
+    fn from(status: i64) -> Self {
+        match status {
+            1 => MediaStatus::Unknown,
+            2 => MediaStatus::Pending,
+            3 => MediaStatus::Processing,
+            4 => MediaStatus::PartiallyAvailable,
+            5 => MediaStatus::Available,
+            _ => MediaStatus::Unknown,
+        }
+    }
+}
+impl MediaStatus {
+    pub fn to_string(&self) -> String {
+        match self {
+            MediaStatus::Unknown => "unknown".to_string(),
+            MediaStatus::Pending => "pending".to_string(),
+            MediaStatus::Processing => "processing".to_string(),
+            MediaStatus::PartiallyAvailable => "partially_available".to_string(),
+            MediaStatus::Available => "available".to_string(),
+        }
+    }
+    pub fn _to_description(&self) -> String {
+        match self {
+            MediaStatus::Unknown => "Overseerr media status unknown".to_string(),
+            MediaStatus::Pending => "Overseerr media status pending".to_string(),
+            MediaStatus::Processing => "Overseerr media status processing".to_string(),
+            MediaStatus::PartiallyAvailable => {
+                "Overseerr media status partially available".to_string()
+            }
+            MediaStatus::Available => "Overseerr media status available".to_string(),
+        }
+    }
+
+    pub fn _get_all() -> Vec<MediaStatus> {
+        vec![
+            MediaStatus::Unknown,
+            MediaStatus::Pending,
+            MediaStatus::Processing,
+            MediaStatus::PartiallyAvailable,
+            MediaStatus::Available,
+        ]
+    }
+}
+
 impl Overseerr {
     pub fn new(address: &str, api_key: &str, requests: i64) -> Result<Overseerr, ProviderError> {
         let mut headers = header::HeaderMap::new();
@@ -86,43 +188,45 @@ impl Overseerr {
                 Vec::new()
             }
         };
-        let mut overseerr_requests = Vec::new();
-        for request in requests {
-            let media_title = match self
-                .get_media_title(&request.media.media_type, request.media.tmdb_id)
-                .await
-            {
-                Ok(title) => title,
-                Err(e) => {
-                    error!("Failed to get media title: {:?}", e);
-                    "Unknown".to_string()
-                }
-            };
-            let overseerr_request = OverseerrRequest {
-                media_type: request.media.media_type.clone(),
-                media_id: request.media.id,
-                status: request.status,
-                requested_by: match self.get_username(request.clone()) {
-                    Ok(username) => username,
+        let futures_requests = requests.into_iter().map(|request| {
+            let self_ref = self.clone(); // Assuming `self` implements `Clone`, so we can move it into the future.
+            async move {
+                // Fetch media title asynchronously
+                let media_title = match self_ref
+                    .get_media_title(&request.media.media_type, request.media.tmdb_id)
+                    .await
+                {
+                    Ok(title) => title,
                     Err(e) => {
-                        error!("Failed to get username: {:?}", e);
+                        error!("Failed to get media title: {:?}", e);
                         "Unknown".to_string()
                     }
-                },
-                media_status: request.media.status,
-                media_title,
-                requested_at: request.created_at,
-            };
-            overseerr_requests.push(overseerr_request);
-        }
+                };
+
+                // Construct the OverseerrRequest
+                OverseerrRequest {
+                    media_type: request.media.media_type.clone(),
+                    media_id: request.media.id,
+                    status: request.status.into(),
+                    requested_by: self_ref.get_username(&request).to_string(),
+                    media_status: request.media.status.into(),
+                    media_title,
+                    requested_at: request.created_at,
+                }
+            }
+        });
+        let overseerr_requests: Vec<OverseerrRequest> = futures::future::join_all(futures_requests)
+            .await
+            .into_iter()
+            .collect();
         overseerr_requests
     }
-    fn get_username(&self, request: overseerr::Result) -> anyhow::Result<String> {
-        match request.requested_by.username {
-            Some(username) => Ok(username),
-            None => match request.requested_by.plex_username {
-                Some(username) => Ok(username),
-                None => Ok("Unknown".to_string()),
+    fn get_username<'a>(&self, request: &'a overseerr::Result) -> &'a str {
+        match &request.requested_by.username {
+            Some(username) => username,
+            None => match &request.requested_by.plex_username {
+                Some(username) => &username,
+                None => "Unknown",
             },
         }
     }

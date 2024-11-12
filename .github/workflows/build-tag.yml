@@ -23,7 +23,7 @@ jobs:
       
       - name: Set env
         run: |
-          RELEASE_VERSION=$(echo ${GITHUB_REF##*/})
+          RELEASE_VERSION=$(echo ${GITHUB_REF##/})
           echo "DOCKER_TAG=$(echo ${RELEASE_VERSION#v})" >> $GITHUB_ENV
       - name: Build and push
         uses: docker/build-push-action@v6
