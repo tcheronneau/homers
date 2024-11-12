@@ -1,9 +1,12 @@
 # HOMERS
 
+![dev build](https://github.com/github/tcheronneau/homers/workflows/build.yml/badge.svg?branch=dev)
+![latest build](https://github.com/tcheronneau/homers/actions/workflows/build-latest.yml/badge.svg?branch=main)
+
 This project has the purposed to be a replacement for [Varken](https://github.com/Boerderij/Varken).   
 Since InfluxDB is not a good option for me, I decided to use prometheus and to build an exporter. 
 
-It's not ready yet, but some features are already there. 
+The project is still in early stage and a lot can still change.  
 
 ![image](https://github.com/user-attachments/assets/9a0c2fb0-52f3-439d-b590-9c6698994d10)
 
@@ -20,7 +23,7 @@ You can either use configuration file or environment variables.
 Each config key has a correspondent environment variable.  
 Example: `config.toml`:
 ```toml
-[server]
+[http]
 port=8000
 address="0.0.0.0"
 [sonarr.main]
@@ -44,6 +47,18 @@ api_key=""
 address="http://localhost:5055"
 api_key=""
 requests=200
+
+[plex.main]
+address="http://localhost:32400"
+token=""
+
+```
+
+Example: `environement`: 
+```bash
+HOMERS_HTTP_ADDRESS: "0.0.0.0"
+HOMERS_SONARR_MAIN_ADDRESS: "http://localhost:8989"
+HOMERS_SONARR_MAIN_APIKEY: ""
 ```
 
 For overseerr you can customize the number of requests you want to pull. Default is 20.  
@@ -61,7 +76,7 @@ Then you can run `cargo build --release`.
 
 Alternatively you can also use nix.  
 To build the project using nix, you can run `nix build .#`.   
-And for the docker image : 
+And for the docker image (not used anymore for the current build): 
 ```
 nix build .#docker
 docker load < ./result
@@ -71,20 +86,21 @@ docker load < ./result
 ## Advancement
 
 So far it's not doing much.   
-[X] Retrieve Sonarr today's calendar
-[X] Retrieve Tautulli activity
-[X] Retrieve Tautulli library information
-[X] Retrieve Overseerr requests
-[X] Retrieve missing episodes from sonarr
-[ ] Retrieve watch information from tautulli
-[ ] Connect to ombi (I'm not using it but if required could do)
-[ ] Other
+[X] Retrieve Sonarr today's calendar  
+[X] Retrieve Tautulli activity  
+[X] Retrieve Tautulli library information   
+[X] Retrieve Overseerr requests  
+[X] Retrieve missing episodes from sonarr  
+[X] Retrieve watch information from tautulli  
+[ ] Retrieve watch information from plex (in progress available in dev tag)  
+[ ] Retrieve watch information from jellyfin  
+[ ] Connect to ombi (I'm not using it but if required could do)  
+[ ] Other  
 
 ## Roadmap
 
 The point is to at least support what Varken was doing. 
-There will also be a Grafana dashboard.  
-Grafana dashboard is now live at [Grafana](https://grafana.com/grafana/dashboards/20744).
+Grafana dashboard example can be found at [Grafana](https://grafana.com/grafana/dashboards/20744).
 
 
 ## Acknowledgments
