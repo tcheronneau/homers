@@ -3,10 +3,8 @@ use reqwest;
 use reqwest::header;
 use serde::{Deserialize, Serialize};
 
-use crate::providers::structs::plex::{
-    LibraryContainer, LibraryItemsContainer, LibraryType, Metadata, PlexResponse,
-};
 pub use crate::providers::structs::plex::{MediaContainer, PlexSessions};
+use crate::providers::structs::plex::{Metadata, PlexResponse};
 use crate::providers::{Provider, ProviderError, ProviderErrorKind};
 
 #[derive(Debug, Deserialize, Clone, Serialize)]

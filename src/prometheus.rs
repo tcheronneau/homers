@@ -5,10 +5,9 @@ use prometheus_client::metrics::family::Family;
 use prometheus_client::metrics::gauge::Gauge;
 use prometheus_client::registry::Registry;
 use std::collections::HashMap;
-use std::fmt::Write;
 use std::sync::atomic::AtomicU64;
 
-use crate::providers::overseerr::{self, OverseerrRequest};
+use crate::providers::overseerr::OverseerrRequest;
 use crate::providers::plex::{LibraryInfos, PlexSessions};
 use crate::providers::radarr::RadarrMovie;
 use crate::providers::sonarr::SonarrEpisode;
@@ -145,6 +144,7 @@ struct OverseerrLabels {
     pub media_type: String,
     pub requested_by: String,
     pub request_status: String,
+    pub media_status: String,
     pub media_title: String,
     pub requested_at: String,
 }
@@ -343,14 +343,15 @@ fn format_radarr_metrics(radarr_hash: HashMap<String, Vec<RadarrMovie>>, registr
 fn format_overseerr_metrics(requests: Vec<OverseerrRequest>, registry: &mut Registry) {
     debug!("Formatting {requests:?} as Prometheus");
     let overseerr_request = Family::<OverseerrLabels, Gauge<f64, AtomicU64>>::default();
-    let mut registy_request = HashMap::new();
-    let mut registy_media = HashMap::new();
+    //let mut registy_request = HashMap::new();
+    //let mut registy_media = HashMap::new();
     registry.register(
         "overseerr_requests",
         format!("overseerr requests status"),
         overseerr_request.clone(),
     );
 
+    /*
     overseerr::MediaStatus::get_all()
         .into_iter()
         .for_each(|status| {
@@ -377,18 +378,20 @@ fn format_overseerr_metrics(requests: Vec<OverseerrRequest>, registry: &mut Regi
                 registy_request.get(&status.to_string()).unwrap().clone(),
             );
         });
+    */
     requests.into_iter().for_each(|request| {
         let labels = OverseerrLabels {
             media_type: request.media_type.clone(),
             requested_by: request.requested_by.to_string(),
             request_status: request.status.to_string(),
+            media_status: request.media_status.to_string(),
             media_title: request.media_title,
             requested_at: request.requested_at,
         };
         overseerr_request
             .get_or_create(&labels)
-            .set(request.media_status as f64);
-        match request.status.into() {
+            .set(request.status.as_f64());
+        /*match request.status.into() {
             overseerr::RequestStatus::Pending => {
                 registy_request
                     .get(&overseerr::RequestStatus::Pending.to_string())
@@ -416,7 +419,7 @@ fn format_overseerr_metrics(requests: Vec<OverseerrRequest>, registry: &mut Regi
                     })
                     .inc();
             }
-        };
+        };*/
     });
 }
 
