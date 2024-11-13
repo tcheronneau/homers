@@ -496,12 +496,40 @@ fn format_plex_library_metrics(
     registry: &mut Registry,
 ) {
     debug!("Formatting {libraries:?} as Prometheus");
+    let plex_movie_count = Family::<EmptyLabel, Gauge<f64, AtomicU64>>::default();
+    let plex_show_count = Family::<EmptyLabel, Gauge<f64, AtomicU64>>::default();
+    let plex_season_count = Family::<EmptyLabel, Gauge<f64, AtomicU64>>::default();
+    let plex_episode_count = Family::<EmptyLabel, Gauge<f64, AtomicU64>>::default();
     let plex_library = Family::<PlexLibraryLabels, Gauge<f64, AtomicU64>>::default();
     registry.register(
         "plex_library",
         format!("Plex library status"),
         plex_library.clone(),
     );
+    registry.register(
+        "plex_movie_count",
+        format!("Plex movie count"),
+        plex_movie_count.clone(),
+    );
+    registry.register(
+        "plex_show_count",
+        format!("Plex show count"),
+        plex_show_count.clone(),
+    );
+    registry.register(
+        "plex_season_count",
+        format!("Plex season count"),
+        plex_season_count.clone(),
+    );
+    registry.register(
+        "plex_episode_count",
+        format!("Plex episode count"),
+        plex_episode_count.clone(),
+    );
+    let mut movie_count = 0;
+    let mut episode_count = 0;
+    let mut season_count = 0;
+    let mut show_count = 0;
     libraries.into_iter().for_each(|(name, library)| {
         library.into_iter().for_each(|lib| {
             plex_library
@@ -513,6 +541,27 @@ fn format_plex_library_metrics(
                     episode_count: lib.library_grand_child_size,
                 })
                 .set(lib.library_size as f64);
+            match lib.library_type.as_str() {
+                "movie" => movie_count += lib.library_size,
+                "show" => {
+                    episode_count += lib.library_grand_child_size.unwrap_or(0);
+                    season_count += lib.library_child_size.unwrap_or(0);
+                    show_count += lib.library_size
+                }
+                _ => {}
+            }
         });
     });
+    plex_movie_count
+        .get_or_create(&EmptyLabel {})
+        .set(movie_count as f64);
+    plex_show_count
+        .get_or_create(&EmptyLabel {})
+        .set(show_count as f64);
+    plex_season_count
+        .get_or_create(&EmptyLabel {})
+        .set(season_count as f64);
+    plex_episode_count
+        .get_or_create(&EmptyLabel {})
+        .set(episode_count as f64);
 }
