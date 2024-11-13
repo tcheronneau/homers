@@ -1,3 +1,4 @@
+pub mod jellyfin;
 pub mod overseerr;
 pub mod plex;
 pub mod radarr;

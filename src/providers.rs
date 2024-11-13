@@ -1,3 +1,4 @@
+pub mod jellyfin;
 pub mod overseerr;
 pub mod plex;
 pub mod radarr;
@@ -22,6 +23,7 @@ pub enum Provider {
     //Unifi,
     Reqwest,
     Plex,
+    Jellyfin,
 }
 impl std::fmt::Display for Provider {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -31,6 +33,7 @@ impl std::fmt::Display for Provider {
             Provider::Overseerr => write!(f, "Overseerr"),
             Provider::Tautulli => write!(f, "Tautulli"),
             Provider::Plex => write!(f, "Plex"),
+            Provider::Jellyfin => write!(f, "Jellyfin"),
             //Provider::Unifi => write!(f, "Unifi"),
             Provider::Reqwest => write!(f, "Reqwest"),
         }
