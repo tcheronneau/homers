@@ -80,12 +80,18 @@ struct PlexSessionPercentageLabels {
     pub latitude: String,
 }
 #[derive(Clone, Hash, Eq, PartialEq, EncodeLabelSet, Debug)]
-struct PlexLibraryLabels {
+struct PlexShowLabels {
     pub name: String,
     pub library_name: String,
     pub library_type: String,
     pub season_count: Option<i64>,
     pub episode_count: Option<i64>,
+}
+#[derive(Clone, Hash, Eq, PartialEq, EncodeLabelSet, Debug)]
+struct PlexLibraryLabels {
+    pub name: String,
+    pub library_name: String,
+    pub library_type: String,
 }
 
 #[derive(Clone, Hash, Eq, PartialEq, EncodeLabelSet, Debug)]
@@ -521,11 +527,17 @@ fn format_plex_library_metrics(
     let plex_show_count = Family::<EmptyLabel, Gauge<f64, AtomicU64>>::default();
     let plex_season_count = Family::<EmptyLabel, Gauge<f64, AtomicU64>>::default();
     let plex_episode_count = Family::<EmptyLabel, Gauge<f64, AtomicU64>>::default();
+    let plex_show_library = Family::<PlexShowLabels, Gauge<f64, AtomicU64>>::default();
     let plex_library = Family::<PlexLibraryLabels, Gauge<f64, AtomicU64>>::default();
     registry.register(
         "plex_library",
         format!("Plex library status"),
         plex_library.clone(),
+    );
+    registry.register(
+        "plex_show_library",
+        format!("Plex show library status"),
+        plex_show_library.clone(),
     );
     registry.register(
         "plex_movie_count",
@@ -552,26 +564,43 @@ fn format_plex_library_metrics(
     let mut season_count = 0;
     let mut show_count = 0;
     libraries.into_iter().for_each(|(name, library)| {
-        library.into_iter().for_each(|lib| {
-            plex_library
-                .get_or_create(&PlexLibraryLabels {
-                    name: name.clone(),
-                    library_name: lib.library_name.clone(),
-                    library_type: lib.library_type.clone(),
-                    season_count: lib.library_child_size,
-                    episode_count: lib.library_grand_child_size,
-                })
-                .set(lib.library_size as f64);
-            match lib.library_type.as_str() {
-                "movie" => movie_count += lib.library_size,
+        library
+            .into_iter()
+            .for_each(|lib| match lib.library_type.as_str() {
+                "movie" => {
+                    movie_count += lib.library_size;
+                    plex_library
+                        .get_or_create(&PlexLibraryLabels {
+                            name: name.clone(),
+                            library_name: lib.library_name.clone(),
+                            library_type: lib.library_type.clone(),
+                        })
+                        .set(lib.library_size as f64);
+                }
                 "show" => {
+                    plex_show_library
+                        .get_or_create(&PlexShowLabels {
+                            name: name.clone(),
+                            library_name: lib.library_name.clone(),
+                            library_type: lib.library_type.clone(),
+                            season_count: lib.library_child_size,
+                            episode_count: lib.library_grand_child_size,
+                        })
+                        .set(lib.library_size as f64);
                     episode_count += lib.library_grand_child_size.unwrap_or(0);
                     season_count += lib.library_child_size.unwrap_or(0);
                     show_count += lib.library_size
                 }
-                _ => {}
-            }
-        });
+                _ => {
+                    plex_library
+                        .get_or_create(&PlexLibraryLabels {
+                            name: name.clone(),
+                            library_name: lib.library_name.clone(),
+                            library_type: lib.library_type.clone(),
+                        })
+                        .set(lib.library_size as f64);
+                }
+            });
     });
     plex_movie_count
         .get_or_create(&EmptyLabel {})
