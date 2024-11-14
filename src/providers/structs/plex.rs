@@ -159,58 +159,27 @@ impl SessionMetadata {
             Some(parent) => parent.to_string(),
             None => self.title.clone(),
         };
-        match &media_type[..] {
-            "episode" => PlexSessions {
-                title,
-                user,
-                stream_decision,
-                media_type,
-                state,
-                progress,
-                quality,
-                season_number,
-                episode_number,
-                location,
-                address,
-                local,
-                secure,
-                relayed,
-                platform,
-            },
-            "movie" => PlexSessions {
-                title,
-                user,
-                stream_decision,
-                media_type,
-                state,
-                progress,
-                quality,
-                season_number: None,
-                episode_number: None,
-                location,
-                address,
-                local,
-                secure,
-                relayed,
-                platform,
-            },
-            _ => PlexSessions {
-                title,
-                user,
-                stream_decision,
-                media_type,
-                state,
-                progress,
-                quality,
-                season_number: None,
-                episode_number: None,
-                location,
-                address,
-                local,
-                secure,
-                relayed,
-                platform,
-            },
+        let bandwidth = Bandwidth {
+            bandwidth: self.session.bandwidth,
+            location: self.session.location.clone().into(),
+        };
+        PlexSessions {
+            title,
+            user,
+            stream_decision,
+            media_type,
+            state,
+            progress,
+            quality,
+            season_number,
+            episode_number,
+            location,
+            address,
+            local,
+            secure,
+            relayed,
+            platform,
+            bandwidth,
         }
     }
 }
@@ -261,6 +230,7 @@ pub struct Player {
 #[serde(rename_all = "camelCase")]
 pub struct Session {
     pub location: String,
+    pub bandwidth: i64,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Location {
@@ -307,6 +277,36 @@ pub struct PlexSessions {
     pub secure: bool,
     pub relayed: bool,
     pub platform: String,
+    pub bandwidth: Bandwidth,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Bandwidth {
+    pub bandwidth: i64,
+    pub location: BandwidthLocation,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum BandwidthLocation {
+    Wan,
+    Lan,
+}
+impl From<String> for BandwidthLocation {
+    fn from(location: String) -> Self {
+        match location.as_str() {
+            "wan" => BandwidthLocation::Wan,
+            "lan" => BandwidthLocation::Lan,
+            _ => BandwidthLocation::Wan,
+        }
+    }
+}
+impl Display for BandwidthLocation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            BandwidthLocation::Wan => write!(f, "WAN"),
+            BandwidthLocation::Lan => write!(f, "LAN"),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
