@@ -25,24 +25,24 @@ port=8000
 address="0.0.0.0"
 [sonarr.main]
 address="http://localhost:8989"
-api_key=""
+apikey=""
 
 [sonarr.second]
 address="http://localhost:7979"
-api_key=""
+apikey=""
 
 [tautulli]
 address="http://localhost:8181"
-api_key=""
+apikey=""
 
 [radarr.main]
 address="http://localhost:7878"
-api_key=""
+apikey=""
 
 
 [overseerr]
 address="http://localhost:5055"
-api_key=""
+apikey=""
 requests=200
 
 [plex.main]
