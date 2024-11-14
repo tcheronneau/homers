@@ -33,6 +33,11 @@ pub enum TaskResult {
 }
 
 #[derive(Clone, Hash, Eq, PartialEq, EncodeLabelSet, Debug)]
+struct PlexSessionBandwidth {
+    pub user: String,
+    pub location: String,
+}
+#[derive(Clone, Hash, Eq, PartialEq, EncodeLabelSet, Debug)]
 struct PlexSessionLabels {
     pub name: String,
     pub title: String,
@@ -431,6 +436,7 @@ fn format_plex_session_metrics(
     let plex_sessions = Family::<PlexSessionLabels, Gauge<f64, AtomicU64>>::default();
     let plex_sessions_percentage =
         Family::<PlexSessionPercentageLabels, Gauge<f64, AtomicU64>>::default();
+    let plex_session_bandwidth = Family::<PlexSessionBandwidth, Gauge<f64, AtomicU64>>::default();
     registry.register(
         "plex_sessions",
         format!("Plex sessions status"),
@@ -440,6 +446,11 @@ fn format_plex_session_metrics(
         "plex_sessions_percentage",
         format!("Plex sessions percentage status"),
         plex_sessions_percentage.clone(),
+    );
+    registry.register(
+        "plex_session_bandwidth",
+        format!("Plex session bandwidth"),
+        plex_session_bandwidth.clone(),
     );
 
     sessions.into_iter().for_each(|(name, sessions)| {
@@ -488,6 +499,12 @@ fn format_plex_session_metrics(
                     latitude: session.location.latitude.clone(),
                 })
                 .set(1.0);
+            plex_session_bandwidth
+                .get_or_create(&PlexSessionBandwidth {
+                    user: session.user.clone(),
+                    location: session.bandwidth.location.to_string(),
+                })
+                .set(session.bandwidth.bandwidth as f64);
         });
     });
 }
