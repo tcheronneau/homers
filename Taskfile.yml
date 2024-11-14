@@ -2,8 +2,11 @@
 
 version: '3'
 
+env:
+  DOCKER_TAG: "" 
+
 vars:
-  DOCKER_TAG: latest
+  DOCKER_TAG: ${DOCKER_TAG:-latest}
 
 tasks:
   build: 
