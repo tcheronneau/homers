@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
-pub struct Session {
+pub struct SessionResponse {
     pub play_state: PlayState,
     pub user_name: String,
     pub device_type: Option<String>,
@@ -32,4 +32,6 @@ pub struct TranscodingInfo {
 pub struct NowPlayingItem {
     pub name: String,
     pub run_time_ticks: i64,
+    #[serde(rename = "Type")]
+    pub type_field: String,
 }

@@ -2,7 +2,7 @@ use reqwest::header;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::providers::structs::jellyfin::Session;
+use crate::providers::structs::Session;
 use crate::providers::{Provider, ProviderError, ProviderErrorKind};
 
 #[derive(Debug, Deserialize, Clone, Serialize)]
