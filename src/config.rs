@@ -9,6 +9,7 @@ use serde::Deserialize;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
+use crate::providers::jellyfin::Jellyfin;
 use crate::providers::overseerr::Overseerr;
 use crate::providers::plex::Plex;
 use crate::providers::radarr::Radarr;
@@ -22,6 +23,7 @@ pub struct Config {
     pub radarr: Option<HashMap<String, Radarr>>,
     pub overseerr: Option<Overseerr>,
     pub plex: Option<HashMap<String, Plex>>,
+    pub jellyfin: Option<HashMap<String, Jellyfin>>,
     pub http: rocket::Config,
 }
 impl Default for Config {
@@ -32,6 +34,7 @@ impl Default for Config {
             radarr: None,
             overseerr: None,
             plex: None,
+            jellyfin: None,
             http: rocket::Config::default(),
         }
     }
