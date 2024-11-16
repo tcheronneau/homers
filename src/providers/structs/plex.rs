@@ -55,6 +55,7 @@ pub struct PlexResponse {
 pub struct ActivityContainer {
     pub size: i64,
     #[serde(rename = "Metadata")]
+    #[serde(default)]
     pub metadata: Vec<Metadata>,
 }
 
@@ -152,7 +153,10 @@ impl SessionMetadata {
         };
         let location = get_ip_info(&self.player.remote_public_address).await;
         let decision = part.decision.clone();
-        let video_stream_decision = video_stream.decision.to_string();
+        let video_stream_decision = match &video_stream.decision {
+            Some(decision) => decision.to_string(),
+            None => "transcode".to_string(),
+        };
         let stream_decision = match decision.as_str() {
             "directplay" => StreamDecision::DirectPlay,
             "transcode" => match video_stream_decision.as_str() {
@@ -216,7 +220,7 @@ pub struct Part {
 pub struct Stream {
     pub display_title: String,
     pub stream_type: i64,
-    pub decision: String,
+    pub decision: Option<String>,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
