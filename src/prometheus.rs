@@ -8,9 +8,10 @@ use std::collections::HashMap;
 use std::sync::atomic::AtomicU64;
 
 use crate::providers::overseerr::OverseerrRequest;
-use crate::providers::plex::{LibraryInfos, PlexSessions};
+use crate::providers::plex::{LibraryInfos, PlexSessions, User as PlexUser};
 use crate::providers::radarr::RadarrMovie;
 use crate::providers::sonarr::SonarrEpisode;
+use crate::providers::structs::plex::BandwidthLocation;
 use crate::providers::structs::tautulli::Library;
 use crate::providers::tautulli::SessionSummary;
 
@@ -27,38 +28,18 @@ pub enum TaskResult {
     TautulliLibrary(Vec<Library>),
     Radarr(HashMap<String, Vec<RadarrMovie>>),
     Overseerr(Vec<OverseerrRequest>),
-    PlexSession(HashMap<String, Vec<PlexSessions>>),
+    PlexSession(HashMap<String, Vec<PlexSessions>>, Vec<PlexUser>),
     PlexLibrary(HashMap<String, Vec<LibraryInfos>>),
     Default,
 }
 
 #[derive(Clone, Hash, Eq, PartialEq, EncodeLabelSet, Debug)]
 struct PlexSessionBandwidth {
+    pub name: String,
     pub location: String,
 }
 #[derive(Clone, Hash, Eq, PartialEq, EncodeLabelSet, Debug)]
 struct PlexSessionLabels {
-    pub name: String,
-    pub title: String,
-    pub user: String,
-    pub decision: String,
-    pub state: String,
-    pub platform: String,
-    pub local: i8,
-    pub relayed: i8,
-    pub media_type: String,
-    pub secure: i8,
-    pub address: String,
-    pub public_address: String,
-    pub season_number: Option<String>,
-    pub episode_number: Option<String>,
-    pub quality: String,
-    pub city: String,
-    pub longitude: String,
-    pub latitude: String,
-}
-#[derive(Clone, Hash, Eq, PartialEq, EncodeLabelSet, Debug)]
-struct PlexSessionPercentageLabels {
     pub name: String,
     pub title: String,
     pub user: String,
@@ -187,8 +168,8 @@ pub fn format_metrics(task_result: Vec<TaskResult>) -> anyhow::Result<String> {
             }
             TaskResult::Radarr(movies) => format_radarr_metrics(movies, &mut registry),
             TaskResult::Overseerr(overseerr) => format_overseerr_metrics(overseerr, &mut registry),
-            TaskResult::PlexSession(sessions) => {
-                format_plex_session_metrics(sessions, &mut registry)
+            TaskResult::PlexSession(sessions, users) => {
+                format_plex_session_metrics(sessions, users, &mut registry)
             }
             TaskResult::PlexLibrary(libraries) => {
                 format_plex_library_metrics(libraries, &mut registry)
@@ -259,7 +240,6 @@ fn format_tautulli_session_metrics(sessions: Vec<SessionSummary>, registry: &mut
     let tautulli_session = Family::<TautulliSessionLabels, Gauge<f64, AtomicU64>>::default();
     let tautulli_session_percentage =
         Family::<TautulliSessionPercentageLabels, Gauge<f64, AtomicU64>>::default();
-    let tautulli_total_session = Family::<EmptyLabel, Gauge<f64, AtomicU64>>::default();
     registry.register(
         "tautulli_session",
         format!("Tautulli session status"),
@@ -270,11 +250,6 @@ fn format_tautulli_session_metrics(sessions: Vec<SessionSummary>, registry: &mut
         format!("Tautulli session progress"),
         tautulli_session_percentage.clone(),
     );
-    let total_sessions = sessions.len();
-    let labels = EmptyLabel {};
-    tautulli_total_session
-        .get_or_create(&labels)
-        .inc_by(total_sessions as f64);
     sessions.into_iter().for_each(|session| {
         let labels = TautulliSessionPercentageLabels {
             user: session.user.clone(),
@@ -439,12 +414,12 @@ fn format_overseerr_metrics(requests: Vec<OverseerrRequest>, registry: &mut Regi
 
 fn format_plex_session_metrics(
     sessions: HashMap<String, Vec<PlexSessions>>,
+    users: Vec<PlexUser>,
     registry: &mut Registry,
 ) {
     debug!("Formatting {sessions:?} as Prometheus");
     let plex_sessions = Family::<PlexSessionLabels, Gauge<f64, AtomicU64>>::default();
-    let plex_sessions_percentage =
-        Family::<PlexSessionPercentageLabels, Gauge<f64, AtomicU64>>::default();
+    let plex_sessions_percentage = Family::<PlexSessionLabels, Gauge<f64, AtomicU64>>::default();
     let plex_session_bandwidth = Family::<PlexSessionBandwidth, Gauge<f64, AtomicU64>>::default();
     registry.register(
         "plex_sessions",
@@ -461,71 +436,78 @@ fn format_plex_session_metrics(
         format!("Plex session bandwidth"),
         plex_session_bandwidth.clone(),
     );
-    if sessions.len() == 0 {
-        plex_session_bandwidth
-            .get_or_create(&PlexSessionBandwidth {
-                location: "WAN".to_string(),
-            })
-            .set(0.0);
-        plex_session_bandwidth
-            .get_or_create(&PlexSessionBandwidth {
-                location: "LAN".to_string(),
-            })
-            .set(0.0);
-    }
-
+    let mut wan_bandwidth = 0.0;
+    let mut lan_bandwidth = 0.0;
+    let mut inactive_users = users;
     sessions.into_iter().for_each(|(name, sessions)| {
         sessions.into_iter().for_each(|session| {
+            match session.bandwidth.location {
+                BandwidthLocation::Wan => wan_bandwidth += session.bandwidth.bandwidth as f64,
+                BandwidthLocation::Lan => lan_bandwidth += session.bandwidth.bandwidth as f64,
+            };
+            inactive_users.retain(|user| user.title != session.user);
+            let session_labels = PlexSessionLabels {
+                name: name.clone(),
+                title: session.title,
+                user: session.user,
+                decision: session.stream_decision.to_string(),
+                state: session.state,
+                platform: session.platform,
+                local: session.local as i8,
+                relayed: session.relayed as i8,
+                secure: session.secure as i8,
+                address: session.address,
+                public_address: session.location.ip_address,
+                season_number: session.season_number,
+                episode_number: session.episode_number,
+                media_type: session.media_type,
+                quality: session.quality,
+                city: session.location.city,
+                longitude: session.location.longitude,
+                latitude: session.location.latitude,
+            };
+
             plex_sessions_percentage
-                .get_or_create(&PlexSessionPercentageLabels {
-                    name: name.clone(),
-                    title: session.title.clone(),
-                    user: session.user.clone(),
-                    decision: session.stream_decision.to_string().clone(),
-                    state: session.state.clone(),
-                    platform: session.platform.clone(),
-                    local: session.local as i8,
-                    relayed: session.relayed as i8,
-                    secure: session.secure as i8,
-                    address: session.address.clone(),
-                    public_address: session.location.ip_address.clone(),
-                    season_number: session.season_number.clone(),
-                    episode_number: session.episode_number.clone(),
-                    media_type: session.media_type.clone(),
-                    quality: session.quality.clone(),
-                    city: session.location.city.clone(),
-                    longitude: session.location.longitude.clone(),
-                    latitude: session.location.latitude.clone(),
-                })
+                .get_or_create(&session_labels)
                 .set(session.progress as f64);
+            plex_sessions.get_or_create(&session_labels).set(1.0);
+        });
+        inactive_users.iter().for_each(|user| {
             plex_sessions
                 .get_or_create(&PlexSessionLabels {
-                    name: name.clone(),
-                    title: session.title.clone(),
-                    user: session.user.clone(),
-                    decision: session.stream_decision.to_string().clone(),
-                    state: session.state.clone(),
-                    platform: session.platform.clone(),
-                    local: session.local as i8,
-                    relayed: session.relayed as i8,
-                    secure: session.secure as i8,
-                    address: session.address.clone(),
-                    media_type: session.media_type.clone(),
-                    public_address: session.location.ip_address.clone(),
-                    season_number: session.season_number.clone(),
-                    episode_number: session.episode_number.clone(),
-                    quality: session.quality.clone(),
-                    city: session.location.city.clone(),
-                    longitude: session.location.longitude.clone(),
-                    latitude: session.location.latitude.clone(),
+                    name: name.to_string(),
+                    title: "".to_string(),
+                    user: user.title.clone(),
+                    decision: "".to_string(),
+                    state: "inactive".to_string(),
+                    platform: "".to_string(),
+                    local: 0,
+                    relayed: 0,
+                    secure: 0,
+                    address: "".to_string(),
+                    media_type: "".to_string(),
+                    public_address: "".to_string(),
+                    season_number: None,
+                    episode_number: None,
+                    quality: "".to_string(),
+                    city: "".to_string(),
+                    longitude: "".to_string(),
+                    latitude: "".to_string(),
                 })
-                .set(1.0);
-            plex_session_bandwidth
-                .get_or_create(&PlexSessionBandwidth {
-                    location: session.bandwidth.location.to_string(),
-                })
-                .set(session.bandwidth.bandwidth as f64);
+                .set(0.0);
         });
+        plex_session_bandwidth
+            .get_or_create(&PlexSessionBandwidth {
+                name: name.clone(),
+                location: "LAN".to_string(),
+            })
+            .set(lan_bandwidth);
+        plex_session_bandwidth
+            .get_or_create(&PlexSessionBandwidth {
+                name,
+                location: "WAN".to_string(),
+            })
+            .set(wan_bandwidth);
     });
 }
 fn format_plex_library_metrics(
@@ -574,17 +556,17 @@ fn format_plex_library_metrics(
     let mut season_count = 0;
     let mut show_count = 0;
     libraries.into_iter().for_each(|(name, library)| {
-        library
-            .into_iter()
-            .for_each(|lib| match lib.library_type.as_str() {
+        library.into_iter().for_each(|lib| {
+            let library_labels = PlexLibraryLabels {
+                name: name.clone(),
+                library_name: lib.library_name.clone(),
+                library_type: lib.library_type.clone(),
+            };
+            match lib.library_type.as_str() {
                 "movie" => {
                     movie_count += lib.library_size;
                     plex_library
-                        .get_or_create(&PlexLibraryLabels {
-                            name: name.clone(),
-                            library_name: lib.library_name.clone(),
-                            library_type: lib.library_type.clone(),
-                        })
+                        .get_or_create(&library_labels)
                         .set(lib.library_size as f64);
                 }
                 "show" => {
@@ -603,14 +585,11 @@ fn format_plex_library_metrics(
                 }
                 _ => {
                     plex_library
-                        .get_or_create(&PlexLibraryLabels {
-                            name: name.clone(),
-                            library_name: lib.library_name.clone(),
-                            library_type: lib.library_type.clone(),
-                        })
+                        .get_or_create(&library_labels)
                         .set(lib.library_size as f64);
                 }
-            });
+            };
+        });
     });
     plex_movie_count
         .get_or_create(&EmptyLabel {})

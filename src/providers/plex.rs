@@ -3,8 +3,8 @@ use reqwest;
 use reqwest::header;
 use serde::{Deserialize, Serialize};
 
-pub use crate::providers::structs::plex::{MediaContainer, PlexSessions};
-use crate::providers::structs::plex::{Metadata, PlexResponse};
+pub use crate::providers::structs::plex::{MediaContainer, PlexSessions, User};
+use crate::providers::structs::plex::{Metadata, PlexResponse, StatUser};
 use crate::providers::{Provider, ProviderError, ProviderErrorKind};
 
 #[derive(Debug, Deserialize, Clone, Serialize)]
@@ -249,5 +249,51 @@ impl Plex {
             episodes_viewed,
             movies_viewed,
         }
+    }
+    pub async fn get_statistics(&self) -> Result<PlexResponse, ProviderError> {
+        let url = format!("{}/statistics/bandwidth", self.address);
+        debug!("Requesting statistics from {}", url);
+        let response = match self.client.get(&url).send().await {
+            Ok(response) => response,
+            Err(e) => {
+                return Err(ProviderError::new(
+                    Provider::Plex,
+                    ProviderErrorKind::GetError,
+                    &format!("{:?}", e),
+                ));
+            }
+        };
+        let statistics = match response.json::<PlexResponse>().await {
+            Ok(statistics) => statistics,
+            Err(e) => {
+                return Err(ProviderError::new(
+                    Provider::Plex,
+                    ProviderErrorKind::ParseError,
+                    &format!("{:?}", e),
+                ));
+            }
+        };
+        Ok(statistics)
+    }
+    pub async fn get_users(&self) -> Vec<User> {
+        let statistics = match self.get_statistics().await {
+            Ok(statistics) => statistics,
+            Err(e) => {
+                error!("Failed to get statistics: {}", e);
+                return Vec::new();
+            }
+        };
+        let statistics_container = match statistics.media_container {
+            MediaContainer::StatisticsContainer(statistics_container) => statistics_container,
+            _ => {
+                error!("Media container received does not match statistics container");
+                return Vec::new();
+            }
+        };
+        statistics_container
+            .account
+            .into_iter()
+            .map(|item| <StatUser as Into<User>>::into(item))
+            .collect()
     }
 }

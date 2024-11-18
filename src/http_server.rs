@@ -100,7 +100,8 @@ async fn process_task(task: Task) -> Result<TaskResult, JoinError> {
             let name = &plex.name;
             let result = plex.get_current_sessions().await;
             let result = HashMap::from([(name.to_string(), result)]);
-            Ok(TaskResult::PlexSession(result))
+            let users = plex.get_users().await;
+            Ok(TaskResult::PlexSession(result, users))
         }
         Task::PlexLibrary(plex) => {
             let name = &plex.name;
