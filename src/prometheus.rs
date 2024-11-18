@@ -34,7 +34,6 @@ pub enum TaskResult {
 
 #[derive(Clone, Hash, Eq, PartialEq, EncodeLabelSet, Debug)]
 struct PlexSessionBandwidth {
-    pub user: String,
     pub location: String,
 }
 #[derive(Clone, Hash, Eq, PartialEq, EncodeLabelSet, Debug)]
@@ -462,6 +461,18 @@ fn format_plex_session_metrics(
         format!("Plex session bandwidth"),
         plex_session_bandwidth.clone(),
     );
+    if sessions.len() == 0 {
+        plex_session_bandwidth
+            .get_or_create(&PlexSessionBandwidth {
+                location: "WAN".to_string(),
+            })
+            .set(0.0);
+        plex_session_bandwidth
+            .get_or_create(&PlexSessionBandwidth {
+                location: "LAN".to_string(),
+            })
+            .set(0.0);
+    }
 
     sessions.into_iter().for_each(|(name, sessions)| {
         sessions.into_iter().for_each(|session| {
@@ -511,7 +522,6 @@ fn format_plex_session_metrics(
                 .set(1.0);
             plex_session_bandwidth
                 .get_or_create(&PlexSessionBandwidth {
-                    user: session.user.clone(),
                     location: session.bandwidth.location.to_string(),
                 })
                 .set(session.bandwidth.bandwidth as f64);
