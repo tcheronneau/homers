@@ -55,6 +55,7 @@ pub struct PlexResponse {
 pub struct ActivityContainer {
     pub size: i64,
     #[serde(rename = "Metadata")]
+    #[serde(default)]
     pub metadata: Vec<Metadata>,
 }
 
@@ -139,7 +140,9 @@ impl SessionMetadata {
         let user = self.user.title.clone();
         let state = self.player.state_field.clone();
         let progress = self.progress();
-        let quality = self.media[0].part[0].stream[0].display_title.clone();
+        let part = &self.media[0].part[0];
+        let video_stream: &Stream = &part.stream.iter().find(|s| s.stream_type == 1).unwrap();
+        let quality = video_stream.display_title.to_string();
         let season_number = match self.parent_index {
             Some(index) => Some(index.to_string()),
             None => None,
@@ -149,7 +152,19 @@ impl SessionMetadata {
             None => None,
         };
         let location = get_ip_info(&self.player.remote_public_address).await;
-        let stream_decision = self.media[0].part[0].decision.clone().into();
+        let decision = part.decision.clone();
+        let video_stream_decision = match &video_stream.decision {
+            Some(decision) => decision.to_string(),
+            None => "transcode".to_string(),
+        };
+        let stream_decision = match decision.as_str() {
+            "directplay" => StreamDecision::DirectPlay,
+            "transcode" => match video_stream_decision.as_str() {
+                "copy" => StreamDecision::DirectStream,
+                _ => StreamDecision::Transcode,
+            },
+            _ => StreamDecision::Transcode,
+        };
         let address = self.player.address.clone();
         let local = self.player.local;
         let secure = self.player.secure;
@@ -204,6 +219,8 @@ pub struct Part {
 #[serde(rename_all = "camelCase")]
 pub struct Stream {
     pub display_title: String,
+    pub stream_type: i64,
+    pub decision: Option<String>,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
