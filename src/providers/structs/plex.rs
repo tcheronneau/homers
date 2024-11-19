@@ -3,20 +3,28 @@ use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum Metadata {
-    SessionMetadata(SessionMetadata),
-    HistoryMetadata(HistoryMetadata),
-    LibraryMetadata(LibraryMetadata),
-    Default(serde_json::Value),
+#[serde(rename_all = "camelCase")]
+pub struct PlexResponse {
+    //#[serde(rename = "MediaContainer",deserialize_with = "deserialize_media_container")]
+    #[serde(rename = "MediaContainer")]
+    pub media_container: MediaContainer,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum MediaContainer {
+    StatisticsContainer(StatisticsContainer),
     LibraryContainer(LibraryContainer),
     LibraryItemsContainer(LibraryItemsContainer),
     ActivityContainer(ActivityContainer),
+    Default(serde_json::Value),
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum Metadata {
+    SessionMetadata(SessionMetadata),
+    HistoryMetadata(HistoryMetadata),
+    LibraryMetadata(LibraryMetadata),
     Default(serde_json::Value),
 }
 
@@ -42,14 +50,6 @@ impl Display for LibraryType {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PlexResponse {
-    //#[serde(rename = "MediaContainer",deserialize_with = "deserialize_media_container")]
-    #[serde(rename = "MediaContainer")]
-    pub media_container: MediaContainer,
-}
-
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ActivityContainer {
@@ -57,6 +57,14 @@ pub struct ActivityContainer {
     #[serde(rename = "Metadata")]
     #[serde(default)]
     pub metadata: Vec<Metadata>,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StatisticsContainer {
+    pub size: i64,
+    #[serde(rename = "Account")]
+    pub account: Vec<StatUser>,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -225,8 +233,20 @@ pub struct Stream {
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct StatUser {
+    pub name: String,
+}
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct User {
     pub title: String,
+}
+impl From<StatUser> for User {
+    fn from(stat_user: StatUser) -> Self {
+        User {
+            title: stat_user.name,
+        }
+    }
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
