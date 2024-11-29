@@ -50,6 +50,7 @@ pub enum Task {
     TautulliLibrary(Tautulli),
     PlexSession(Plex),
     PlexLibrary(Plex),
+    JellyfinSession(Jellyfin),
     Default,
 }
 
@@ -121,6 +122,12 @@ pub fn get_tasks(config: Config) -> anyhow::Result<Vec<Task>> {
             let client = Plex::new(&name, remove_trailing_slash(&p.address), &p.token)?;
             tasks.push(Task::PlexSession(client.clone()));
             tasks.push(Task::PlexLibrary(client));
+        }
+    }
+    if let Some(jellyfin) = config.jellyfin {
+        for (name, j) in jellyfin {
+            let client = Jellyfin::new(&name, remove_trailing_slash(&j.address), &j.api_key)?;
+            tasks.push(Task::JellyfinSession(client.clone()));
         }
     }
     Ok(tasks)

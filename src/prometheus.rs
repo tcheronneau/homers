@@ -8,11 +8,11 @@ use std::collections::HashMap;
 use std::sync::atomic::AtomicU64;
 
 use crate::providers::overseerr::OverseerrRequest;
-use crate::providers::plex::{LibraryInfos, PlexSessions, User as PlexUser};
+use crate::providers::plex::LibraryInfos;
 use crate::providers::radarr::RadarrMovie;
 use crate::providers::sonarr::SonarrEpisode;
-use crate::providers::structs::plex::BandwidthLocation;
 use crate::providers::structs::tautulli::Library;
+use crate::providers::structs::{BandwidthLocation, Session, User};
 use crate::providers::tautulli::SessionSummary;
 
 #[derive(PartialEq, Debug, Eq, Copy, Clone)]
@@ -28,8 +28,9 @@ pub enum TaskResult {
     TautulliLibrary(Vec<Library>),
     Radarr(HashMap<String, Vec<RadarrMovie>>),
     Overseerr(Vec<OverseerrRequest>),
-    PlexSession(HashMap<String, Vec<PlexSessions>>, Vec<PlexUser>),
+    PlexSession(HashMap<String, Vec<Session>>, Vec<User>),
     PlexLibrary(HashMap<String, Vec<LibraryInfos>>),
+    JellyfinSession(HashMap<String, Vec<Session>>, Vec<User>),
     Default,
 }
 
@@ -173,6 +174,9 @@ pub fn format_metrics(task_result: Vec<TaskResult>) -> anyhow::Result<String> {
             }
             TaskResult::PlexLibrary(libraries) => {
                 format_plex_library_metrics(libraries, &mut registry)
+            }
+            TaskResult::JellyfinSession(sessions, users) => {
+                format_plex_session_metrics(sessions, users, &mut registry)
             }
             TaskResult::Default => return Err(anyhow::anyhow!("No task result")),
         }
@@ -332,42 +336,12 @@ fn format_radarr_metrics(radarr_hash: HashMap<String, Vec<RadarrMovie>>, registr
 fn format_overseerr_metrics(requests: Vec<OverseerrRequest>, registry: &mut Registry) {
     debug!("Formatting {requests:?} as Prometheus");
     let overseerr_request = Family::<OverseerrLabels, Gauge<f64, AtomicU64>>::default();
-    //let mut registy_request = HashMap::new();
-    //let mut registy_media = HashMap::new();
     registry.register(
         "overseerr_requests",
         format!("overseerr requests status"),
         overseerr_request.clone(),
     );
 
-    /*
-    overseerr::MediaStatus::get_all()
-        .into_iter()
-        .for_each(|status| {
-            registy_media.insert(
-                status.to_string(),
-                Family::<OverseerrRequestsLabels, Gauge<f64, AtomicU64>>::default(),
-            );
-            registry.register(
-                &format!("overseerr_requests_{}", status.to_string()),
-                format!("{}", status.to_description()),
-                registy_media.get(&status.to_string()).unwrap().clone(),
-            );
-        });
-    overseerr::RequestStatus::get_all()
-        .into_iter()
-        .for_each(|status| {
-            registy_request.insert(
-                status.to_string(),
-                Family::<OverseerrRequestsLabels, Gauge<f64, AtomicU64>>::default(),
-            );
-            registry.register(
-                &format!("overseerr_requests_{}", status.to_string()),
-                format!("{}", status.to_description()),
-                registy_request.get(&status.to_string()).unwrap().clone(),
-            );
-        });
-    */
     requests.into_iter().for_each(|request| {
         let labels = OverseerrLabels {
             media_type: request.media_type.clone(),
@@ -380,41 +354,12 @@ fn format_overseerr_metrics(requests: Vec<OverseerrRequest>, registry: &mut Regi
         overseerr_request
             .get_or_create(&labels)
             .set(request.status.as_f64());
-        /*match request.status.into() {
-            overseerr::RequestStatus::Pending => {
-                registy_request
-                    .get(&overseerr::RequestStatus::Pending.to_string())
-                    .unwrap()
-                    .get_or_create(&OverseerrRequestsLabels {
-                        kind: overseerr::RequestStatus::Pending.to_string(),
-                    })
-                    .inc();
-            }
-            overseerr::RequestStatus::Approved => {
-                registy_request
-                    .get(&overseerr::RequestStatus::Approved.to_string())
-                    .unwrap()
-                    .get_or_create(&OverseerrRequestsLabels {
-                        kind: overseerr::RequestStatus::Approved.to_string(),
-                    })
-                    .inc();
-            }
-            overseerr::RequestStatus::Declined => {
-                registy_request
-                    .get(&overseerr::RequestStatus::Declined.to_string())
-                    .unwrap()
-                    .get_or_create(&OverseerrRequestsLabels {
-                        kind: overseerr::RequestStatus::Declined.to_string(),
-                    })
-                    .inc();
-            }
-        };*/
     });
 }
 
 fn format_plex_session_metrics(
-    sessions: HashMap<String, Vec<PlexSessions>>,
-    users: Vec<PlexUser>,
+    sessions: HashMap<String, Vec<Session>>,
+    users: Vec<User>,
     registry: &mut Registry,
 ) {
     debug!("Formatting {sessions:?} as Prometheus");
@@ -444,8 +389,9 @@ fn format_plex_session_metrics(
             match session.bandwidth.location {
                 BandwidthLocation::Wan => wan_bandwidth += session.bandwidth.bandwidth as f64,
                 BandwidthLocation::Lan => lan_bandwidth += session.bandwidth.bandwidth as f64,
+                BandwidthLocation::Unknown => {}
             };
-            inactive_users.retain(|user| user.title != session.user);
+            inactive_users.retain(|user| user.name != session.user);
             let session_labels = PlexSessionLabels {
                 name: name.clone(),
                 title: session.title,
@@ -477,7 +423,7 @@ fn format_plex_session_metrics(
                 .get_or_create(&PlexSessionLabels {
                     name: name.to_string(),
                     title: "".to_string(),
-                    user: user.title.clone(),
+                    user: user.name.clone(),
                     decision: "".to_string(),
                     state: "inactive".to_string(),
                     platform: "".to_string(),

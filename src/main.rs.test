@@ -82,21 +82,23 @@ async fn main() -> Result<()> {
         .log_level()
         .expect("Log level cannot be not available");
     let config = config::read(args.config.clone(), log_level)?;
-    //let jelly_conf = config.jellyfin.expect("Jellyfin config not found");
-    //for (name, j) in jelly_conf {
-    //    let jellyfin = Jellyfin::new(&name, &j.address, &j.api_key)?;
-    //    let session = jellyfin.get_sessions().await?;
-    //    println!("{:?}", session);
-    //}
-
-    let plex = config.plex.expect("plex config not found");
-    for (name, p) in plex {
-        let plex = providers::plex::Plex::new(&name, &p.address, &p.token)?;
-        let users = plex.get_users().await;
-        for user in users {
-            println!("{:?}", user);
-        }
+    let jelly_conf = config.jellyfin.expect("Jellyfin config not found");
+    for (name, j) in jelly_conf {
+        let jellyfin = Jellyfin::new(&name, &j.address, &j.api_key)?;
+        let session = jellyfin.get_sessions().await?;
+        println!("{:?}", session);
+        let library_counts = jellyfin.get_library_counts().await?;
+        println!("{:?}", library_counts);
     }
+
+    //let plex = config.plex.expect("plex config not found");
+    //for (name, p) in plex {
+    //    let plex = providers::plex::Plex::new(&name, &p.address, &p.token)?;
+    //    let users = plex.get_users().await;
+    //    for user in users {
+    //        println!("{:?}", user);
+    //    }
+    //}
     //    let history = match plex.get_history().await {
     //        Ok(history) => history,
     //        Err(e) => {

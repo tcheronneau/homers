@@ -3,7 +3,6 @@ use futures::future::try_join_all;
 use log::{error, info};
 use rocket::http::{Accept, ContentType, Status};
 use rocket::tokio::task;
-use rocket::tokio::task::JoinSet;
 use rocket::{get, routes, Build, Responder, Rocket, State};
 use std::collections::HashMap;
 use std::process::exit;
@@ -113,6 +112,13 @@ async fn process_tasks(tasks: Vec<Task>) -> Result<Vec<TaskResult>, JoinError> {
                     let result = HashMap::from([(name.to_string(), result)]);
                     Ok(TaskResult::PlexLibrary(result))
                 }
+                Task::JellyfinSession(jellyfin) => {
+                    let name = &jellyfin.name;
+                    let result = jellyfin.get_current_sessions().await;
+                    let result = HashMap::from([(name.to_string(), result)]);
+                    let users = jellyfin.get_users().await;
+                    Ok(TaskResult::JellyfinSession(result, users))
+                }
                 Task::Default => Ok(TaskResult::Default),
             }
         })
@@ -142,40 +148,6 @@ async fn serve_metrics(format: Format, unscheduled_tasks: &State<Vec<Task>>) -> 
             )
         }
     }
-    //let mut join_set = JoinSet::new();
-    //for task in unscheduled_tasks.iter().cloned() {
-    //    join_set.spawn(process_task(task));
-    //}
-
-    //wait_for_metrics(format, join_set).await.map_or_else(
-    //    |e| {
-    //        error!("General error while fetching providers data: {e}");
-    //        MetricsResponse::new(
-    //            Status::InternalServerError,
-    //            format,
-    //            "Error while fetching providers data. Check the logs".into(),
-    //        )
-    //    },
-    //    |metrics| MetricsResponse::new(Status::Ok, format, metrics),
-    //)
-}
-
-async fn wait_for_metrics(
-    _format: Format,
-    mut join_set: JoinSet<Result<TaskResult, JoinError>>,
-) -> anyhow::Result<String> {
-    let mut tasks: Vec<TaskResult> = Vec::new();
-    while let Some(result) = join_set.join_next().await {
-        match result? {
-            Ok(tr) => {
-                tasks.push(tr);
-            }
-            Err(e) => {
-                error!("Error while fetching metrics: {e}");
-            }
-        }
-    }
-    format_metrics(tasks)
 }
 
 const fn get_content_type_params(version: &str) -> [(&str, &str); 2] {

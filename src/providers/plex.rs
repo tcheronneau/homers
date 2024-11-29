@@ -1,10 +1,12 @@
+use crate::providers::structs::AsyncFrom;
 use log::{debug, error};
 use reqwest;
 use reqwest::header;
 use serde::{Deserialize, Serialize};
 
-pub use crate::providers::structs::plex::{MediaContainer, PlexSessions, User};
+pub use crate::providers::structs::plex::MediaContainer;
 use crate::providers::structs::plex::{Metadata, PlexResponse, StatUser};
+use crate::providers::structs::{Session, User};
 use crate::providers::{Provider, ProviderError, ProviderErrorKind};
 
 #[derive(Debug, Deserialize, Clone, Serialize)]
@@ -178,7 +180,7 @@ impl Plex {
         library_infos
     }
 
-    pub async fn get_current_sessions(&self) -> Vec<PlexSessions> {
+    pub async fn get_current_sessions(&self) -> Vec<Session> {
         let sessions = match self.get_sessions().await {
             Ok(sessions) => sessions,
             Err(e) => {
@@ -186,7 +188,7 @@ impl Plex {
                 return Vec::new();
             }
         };
-        let mut current_sessions: Vec<PlexSessions> = Vec::new();
+        let mut current_sessions: Vec<Session> = Vec::new();
         let activity_container = match sessions.media_container {
             MediaContainer::ActivityContainer(activity_container) => activity_container,
             _ => {
@@ -194,10 +196,11 @@ impl Plex {
                 return Vec::new();
             }
         };
-        for item in activity_container.metadata.iter() {
+        for item in activity_container.metadata.into_iter() {
             match item {
                 Metadata::SessionMetadata(meta) => {
-                    current_sessions.push(meta.to().await);
+                    let session = Session::from_async(meta).await;
+                    current_sessions.push(session);
                 }
                 _ => {
                     error!("Metadata received does not match session metadata");
