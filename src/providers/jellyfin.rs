@@ -1,8 +1,12 @@
+use crate::providers::structs::AsyncFrom;
+use log::error;
 use reqwest::header;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
-use crate::providers::structs::Session;
+use crate::providers::structs::jellyfin::{
+    JellyfinLibraryCounts, SessionResponse, User as JellyfinUser,
+};
+use crate::providers::structs::{LibraryCount, Session, User};
 use crate::providers::{Provider, ProviderError, ProviderErrorKind};
 
 #[derive(Debug, Deserialize, Clone, Serialize)]
@@ -43,7 +47,7 @@ impl Jellyfin {
         })
     }
 
-    pub async fn get_sessions(&self) -> Result<Vec<Session>, ProviderError> {
+    async fn get_sessions(&self) -> Result<Vec<Session>, ProviderError> {
         let url = format!("{}/Sessions", self.address);
         let response = match self.client.get(&url).send().await {
             Ok(response) => response,
@@ -55,7 +59,7 @@ impl Jellyfin {
                 ));
             }
         };
-        let sessions: Vec<Session> = match response.json().await {
+        let sessions: Vec<SessionResponse> = match response.json().await {
             Ok(sessions) => sessions,
             Err(e) => {
                 return Err(ProviderError::new(
@@ -65,6 +69,75 @@ impl Jellyfin {
                 ));
             }
         };
-        Ok(sessions)
+        let mut jelly_sessions: Vec<Session> = Vec::new();
+        for session in sessions {
+            let session = Session::from_async(session).await;
+            jelly_sessions.push(session);
+        }
+        Ok(jelly_sessions)
+    }
+    pub async fn get_current_sessions(&self) -> Vec<Session> {
+        match self.get_sessions().await {
+            Ok(sessions) => sessions,
+            Err(e) => {
+                error!("Failed to get sessions: {}", e);
+                Vec::new()
+            }
+        }
+    }
+    pub async fn get_users(&self) -> Vec<User> {
+        let url = format!("{}/Users", self.address);
+        let response = match self.client.get(&url).send().await {
+            Ok(response) => response,
+            Err(e) => {
+                error!("Failed to get users: {}", e);
+                return Vec::new();
+            }
+        };
+        let users: Vec<JellyfinUser> = match response.json().await {
+            Ok(users) => users,
+            Err(e) => {
+                error!("Failed to parse users: {}", e);
+                return Vec::new();
+            }
+        };
+        users.into_iter().map(User::from).collect()
+    }
+    async fn get_library_counts(&self) -> Result<JellyfinLibraryCounts, ProviderError> {
+        let url = format!("{}/Items/Counts", self.address);
+        let response = match self.client.get(&url).send().await {
+            Ok(response) => response,
+            Err(e) => {
+                return Err(ProviderError::new(
+                    Provider::Jellyfin,
+                    ProviderErrorKind::GetError,
+                    &format!("{:?}", e),
+                ));
+            }
+        };
+        let library_counts: JellyfinLibraryCounts = match response.json().await {
+            Ok(library_counts) => library_counts,
+            Err(e) => {
+                return Err(ProviderError::new(
+                    Provider::Jellyfin,
+                    ProviderErrorKind::ParseError,
+                    &format!("{:?}", e),
+                ));
+            }
+        };
+        Ok(library_counts)
+    }
+    pub async fn get_library(&self) -> Vec<LibraryCount> {
+        let library_infos = match self.get_library_counts().await {
+            Ok(library_counts) => library_counts.into(),
+            Err(e) => {
+                error!("Failed to get library counts: {}", e);
+                Vec::new()
+            }
+        };
+        library_infos
+            .into_iter()
+            .map(|library| library.into())
+            .collect()
     }
 }

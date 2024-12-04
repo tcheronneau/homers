@@ -8,11 +8,12 @@ use std::collections::HashMap;
 use std::sync::atomic::AtomicU64;
 
 use crate::providers::overseerr::OverseerrRequest;
-use crate::providers::plex::{LibraryInfos, PlexSessions, User as PlexUser};
 use crate::providers::radarr::RadarrMovie;
 use crate::providers::sonarr::SonarrEpisode;
-use crate::providers::structs::plex::BandwidthLocation;
 use crate::providers::structs::tautulli::Library;
+use crate::providers::structs::{
+    BandwidthLocation, LibraryCount, MediaType as LibraryMediaType, Session, User,
+};
 use crate::providers::tautulli::SessionSummary;
 
 #[derive(PartialEq, Debug, Eq, Copy, Clone)]
@@ -28,18 +29,20 @@ pub enum TaskResult {
     TautulliLibrary(Vec<Library>),
     Radarr(HashMap<String, Vec<RadarrMovie>>),
     Overseerr(Vec<OverseerrRequest>),
-    PlexSession(HashMap<String, Vec<PlexSessions>>, Vec<PlexUser>),
-    PlexLibrary(HashMap<String, Vec<LibraryInfos>>),
+    PlexSession(HashMap<String, Vec<Session>>, Vec<User>),
+    PlexLibrary(HashMap<String, Vec<LibraryCount>>),
+    JellyfinSession(HashMap<String, Vec<Session>>, Vec<User>),
+    JellyfinLibrary(HashMap<String, Vec<LibraryCount>>),
     Default,
 }
 
 #[derive(Clone, Hash, Eq, PartialEq, EncodeLabelSet, Debug)]
-struct PlexSessionBandwidth {
+struct SessionBandwidth {
     pub name: String,
     pub location: String,
 }
 #[derive(Clone, Hash, Eq, PartialEq, EncodeLabelSet, Debug)]
-struct PlexSessionLabels {
+struct SessionLabels {
     pub name: String,
     pub title: String,
     pub user: String,
@@ -169,10 +172,16 @@ pub fn format_metrics(task_result: Vec<TaskResult>) -> anyhow::Result<String> {
             TaskResult::Radarr(movies) => format_radarr_metrics(movies, &mut registry),
             TaskResult::Overseerr(overseerr) => format_overseerr_metrics(overseerr, &mut registry),
             TaskResult::PlexSession(sessions, users) => {
-                format_plex_session_metrics(sessions, users, &mut registry)
+                format_session_metrics("plex", sessions, users, &mut registry)
             }
             TaskResult::PlexLibrary(libraries) => {
-                format_plex_library_metrics(libraries, &mut registry)
+                format_library_metrics("plex", libraries, &mut registry)
+            }
+            TaskResult::JellyfinSession(sessions, users) => {
+                format_session_metrics("jellyfin", sessions, users, &mut registry)
+            }
+            TaskResult::JellyfinLibrary(libraries) => {
+                format_library_metrics("jellyfin", libraries, &mut registry)
             }
             TaskResult::Default => return Err(anyhow::anyhow!("No task result")),
         }
@@ -332,42 +341,12 @@ fn format_radarr_metrics(radarr_hash: HashMap<String, Vec<RadarrMovie>>, registr
 fn format_overseerr_metrics(requests: Vec<OverseerrRequest>, registry: &mut Registry) {
     debug!("Formatting {requests:?} as Prometheus");
     let overseerr_request = Family::<OverseerrLabels, Gauge<f64, AtomicU64>>::default();
-    //let mut registy_request = HashMap::new();
-    //let mut registy_media = HashMap::new();
     registry.register(
         "overseerr_requests",
         format!("overseerr requests status"),
         overseerr_request.clone(),
     );
 
-    /*
-    overseerr::MediaStatus::get_all()
-        .into_iter()
-        .for_each(|status| {
-            registy_media.insert(
-                status.to_string(),
-                Family::<OverseerrRequestsLabels, Gauge<f64, AtomicU64>>::default(),
-            );
-            registry.register(
-                &format!("overseerr_requests_{}", status.to_string()),
-                format!("{}", status.to_description()),
-                registy_media.get(&status.to_string()).unwrap().clone(),
-            );
-        });
-    overseerr::RequestStatus::get_all()
-        .into_iter()
-        .for_each(|status| {
-            registy_request.insert(
-                status.to_string(),
-                Family::<OverseerrRequestsLabels, Gauge<f64, AtomicU64>>::default(),
-            );
-            registry.register(
-                &format!("overseerr_requests_{}", status.to_string()),
-                format!("{}", status.to_description()),
-                registy_request.get(&status.to_string()).unwrap().clone(),
-            );
-        });
-    */
     requests.into_iter().for_each(|request| {
         let labels = OverseerrLabels {
             media_type: request.media_type.clone(),
@@ -380,62 +359,67 @@ fn format_overseerr_metrics(requests: Vec<OverseerrRequest>, registry: &mut Regi
         overseerr_request
             .get_or_create(&labels)
             .set(request.status.as_f64());
-        /*match request.status.into() {
-            overseerr::RequestStatus::Pending => {
-                registy_request
-                    .get(&overseerr::RequestStatus::Pending.to_string())
-                    .unwrap()
-                    .get_or_create(&OverseerrRequestsLabels {
-                        kind: overseerr::RequestStatus::Pending.to_string(),
-                    })
-                    .inc();
-            }
-            overseerr::RequestStatus::Approved => {
-                registy_request
-                    .get(&overseerr::RequestStatus::Approved.to_string())
-                    .unwrap()
-                    .get_or_create(&OverseerrRequestsLabels {
-                        kind: overseerr::RequestStatus::Approved.to_string(),
-                    })
-                    .inc();
-            }
-            overseerr::RequestStatus::Declined => {
-                registy_request
-                    .get(&overseerr::RequestStatus::Declined.to_string())
-                    .unwrap()
-                    .get_or_create(&OverseerrRequestsLabels {
-                        kind: overseerr::RequestStatus::Declined.to_string(),
-                    })
-                    .inc();
-            }
-        };*/
     });
 }
 
-fn format_plex_session_metrics(
-    sessions: HashMap<String, Vec<PlexSessions>>,
-    users: Vec<PlexUser>,
+fn format_session_metrics(
+    kind: &str,
+    sessions: HashMap<String, Vec<Session>>,
+    users: Vec<User>,
     registry: &mut Registry,
 ) {
     debug!("Formatting {sessions:?} as Prometheus");
-    let plex_sessions = Family::<PlexSessionLabels, Gauge<f64, AtomicU64>>::default();
-    let plex_sessions_percentage = Family::<PlexSessionLabels, Gauge<f64, AtomicU64>>::default();
-    let plex_session_bandwidth = Family::<PlexSessionBandwidth, Gauge<f64, AtomicU64>>::default();
-    registry.register(
-        "plex_sessions",
-        format!("Plex sessions status"),
-        plex_sessions.clone(),
-    );
-    registry.register(
-        "plex_sessions_percentage",
-        format!("Plex sessions percentage status"),
-        plex_sessions_percentage.clone(),
-    );
-    registry.register(
-        "plex_session_bandwidth",
-        format!("Plex session bandwidth"),
-        plex_session_bandwidth.clone(),
-    );
+    let sessions_labels = Family::<SessionLabels, Gauge<f64, AtomicU64>>::default();
+    let sessions_percentage = Family::<SessionLabels, Gauge<f64, AtomicU64>>::default();
+    let session_bandwidth = Family::<SessionBandwidth, Gauge<f64, AtomicU64>>::default();
+    match kind {
+        "plex" => {
+            registry.register(
+                "plex_sessions",
+                format!("Plex sessions status"),
+                sessions_labels.clone(),
+            );
+            registry.register(
+                "plex_sessions_percentage",
+                format!("Plex sessions percentage status"),
+                sessions_percentage.clone(),
+            );
+            registry.register(
+                "plex_session_bandwidth",
+                format!("Plex session bandwidth"),
+                session_bandwidth.clone(),
+            );
+        }
+        "jellyfin" => {
+            registry.register(
+                "jellyfin_sessions",
+                format!("Jellyfin sessions status"),
+                sessions_labels.clone(),
+            );
+            registry.register(
+                "jellyfin_sessions_percentage",
+                format!("Jellyfin sessions percentage status"),
+                sessions_percentage.clone(),
+            );
+        }
+        _ => {
+            registry.register(
+                "sessions",
+                format!("Sessions status"),
+                sessions_labels.clone(),
+            );
+            registry.register(
+                "sessions_percentage",
+                format!("Sessions percentage status"),
+                sessions_percentage.clone(),
+            );
+            registry.register(
+                "session_bandwidth",
+                format!("Session bandwidth"),
+                session_bandwidth.clone(),
+            );
+        }
+    }
     let mut wan_bandwidth = 0.0;
     let mut lan_bandwidth = 0.0;
     let mut inactive_users = users;
@@ -444,9 +428,10 @@ fn format_plex_session_metrics(
             match session.bandwidth.location {
                 BandwidthLocation::Wan => wan_bandwidth += session.bandwidth.bandwidth as f64,
                 BandwidthLocation::Lan => lan_bandwidth += session.bandwidth.bandwidth as f64,
+                BandwidthLocation::Unknown => {}
             };
-            inactive_users.retain(|user| user.title != session.user);
-            let session_labels = PlexSessionLabels {
+            inactive_users.retain(|user| user.name != session.user);
+            let session_labels = SessionLabels {
                 name: name.clone(),
                 title: session.title,
                 user: session.user,
@@ -467,17 +452,17 @@ fn format_plex_session_metrics(
                 latitude: session.location.latitude,
             };
 
-            plex_sessions_percentage
+            sessions_percentage
                 .get_or_create(&session_labels)
                 .set(session.progress as f64);
-            plex_sessions.get_or_create(&session_labels).set(1.0);
+            sessions_labels.get_or_create(&session_labels).set(1.0);
         });
         inactive_users.iter().for_each(|user| {
-            plex_sessions
-                .get_or_create(&PlexSessionLabels {
+            sessions_labels
+                .get_or_create(&SessionLabels {
                     name: name.to_string(),
                     title: "".to_string(),
-                    user: user.title.clone(),
+                    user: user.name.clone(),
                     decision: "".to_string(),
                     state: "inactive".to_string(),
                     platform: "".to_string(),
@@ -496,61 +481,85 @@ fn format_plex_session_metrics(
                 })
                 .set(0.0);
         });
-        plex_session_bandwidth
-            .get_or_create(&PlexSessionBandwidth {
-                name: name.clone(),
-                location: "LAN".to_string(),
-            })
-            .set(lan_bandwidth);
-        plex_session_bandwidth
-            .get_or_create(&PlexSessionBandwidth {
-                name,
-                location: "WAN".to_string(),
-            })
-            .set(wan_bandwidth);
+        match kind {
+            "plex" => {
+                session_bandwidth
+                    .get_or_create(&SessionBandwidth {
+                        name: name.clone(),
+                        location: "LAN".to_string(),
+                    })
+                    .set(lan_bandwidth);
+                session_bandwidth
+                    .get_or_create(&SessionBandwidth {
+                        name,
+                        location: "WAN".to_string(),
+                    })
+                    .set(wan_bandwidth);
+            }
+            _ => {}
+        }
     });
 }
-fn format_plex_library_metrics(
-    libraries: HashMap<String, Vec<LibraryInfos>>,
+fn format_library_metrics(
+    kind: &str,
+    libraries: HashMap<String, Vec<LibraryCount>>,
     registry: &mut Registry,
 ) {
     debug!("Formatting {libraries:?} as Prometheus");
-    let plex_movie_count = Family::<EmptyLabel, Gauge<f64, AtomicU64>>::default();
-    let plex_show_count = Family::<EmptyLabel, Gauge<f64, AtomicU64>>::default();
-    let plex_season_count = Family::<EmptyLabel, Gauge<f64, AtomicU64>>::default();
-    let plex_episode_count = Family::<EmptyLabel, Gauge<f64, AtomicU64>>::default();
-    let plex_show_library = Family::<PlexShowLabels, Gauge<f64, AtomicU64>>::default();
-    let plex_library = Family::<PlexLibraryLabels, Gauge<f64, AtomicU64>>::default();
-    registry.register(
-        "plex_library",
-        format!("Plex library status"),
-        plex_library.clone(),
-    );
-    registry.register(
-        "plex_show_library",
-        format!("Plex show library status"),
-        plex_show_library.clone(),
-    );
-    registry.register(
-        "plex_movie_count",
-        format!("Plex movie count"),
-        plex_movie_count.clone(),
-    );
-    registry.register(
-        "plex_show_count",
-        format!("Plex show count"),
-        plex_show_count.clone(),
-    );
-    registry.register(
-        "plex_season_count",
-        format!("Plex season count"),
-        plex_season_count.clone(),
-    );
-    registry.register(
-        "plex_episode_count",
-        format!("Plex episode count"),
-        plex_episode_count.clone(),
-    );
+    let movie_count_label = Family::<EmptyLabel, Gauge<f64, AtomicU64>>::default();
+    let show_count_label = Family::<EmptyLabel, Gauge<f64, AtomicU64>>::default();
+    let season_count_label = Family::<EmptyLabel, Gauge<f64, AtomicU64>>::default();
+    let episode_count_label = Family::<EmptyLabel, Gauge<f64, AtomicU64>>::default();
+    let show_library_label = Family::<PlexShowLabels, Gauge<f64, AtomicU64>>::default();
+    let library_label = Family::<PlexLibraryLabels, Gauge<f64, AtomicU64>>::default();
+    match kind {
+        "plex" => {
+            registry.register(
+                "plex_movie_count",
+                "Plex movie count",
+                movie_count_label.clone(),
+            );
+            registry.register(
+                "plex_show_count",
+                "Plex show count",
+                show_count_label.clone(),
+            );
+            registry.register(
+                "plex_season_count",
+                "Plex season count",
+                season_count_label.clone(),
+            );
+            registry.register(
+                "plex_episode_count",
+                "Plex episode count",
+                episode_count_label.clone(),
+            );
+            registry.register(
+                "plex_show_library",
+                "Plex show library",
+                show_library_label.clone(),
+            );
+            registry.register("plex_library", "Plex library", library_label.clone());
+        }
+        "jellyfin" => {
+            registry.register(
+                "jellyfin_movie_count",
+                "Jellyfin movie count",
+                movie_count_label.clone(),
+            );
+            registry.register(
+                "jellyfin_show_count",
+                "Jellyfin show count",
+                show_count_label.clone(),
+            );
+            registry.register(
+                "jellyfin_episode_count",
+                "Jellyfin episode count",
+                episode_count_label.clone(),
+            );
+        }
+        _ => {}
+    }
     let mut movie_count = 0;
     let mut episode_count = 0;
     let mut season_count = 0;
@@ -559,48 +568,48 @@ fn format_plex_library_metrics(
         library.into_iter().for_each(|lib| {
             let library_labels = PlexLibraryLabels {
                 name: name.clone(),
-                library_name: lib.library_name.clone(),
-                library_type: lib.library_type.clone(),
+                library_name: lib.name.clone(),
+                library_type: lib.media_type.to_string(),
             };
-            match lib.library_type.as_str() {
-                "movie" => {
-                    movie_count += lib.library_size;
-                    plex_library
+            match lib.media_type {
+                LibraryMediaType::Movie => {
+                    movie_count += lib.count;
+                    library_label
                         .get_or_create(&library_labels)
-                        .set(lib.library_size as f64);
+                        .set(lib.count as f64);
                 }
-                "show" => {
-                    plex_show_library
+                LibraryMediaType::Show => {
+                    show_library_label
                         .get_or_create(&PlexShowLabels {
                             name: name.clone(),
-                            library_name: lib.library_name.clone(),
-                            library_type: lib.library_type.clone(),
-                            season_count: lib.library_child_size,
-                            episode_count: lib.library_grand_child_size,
+                            library_name: lib.name.clone(),
+                            library_type: lib.media_type.to_string(),
+                            season_count: lib.child_count,
+                            episode_count: lib.grand_child_count,
                         })
-                        .set(lib.library_size as f64);
-                    episode_count += lib.library_grand_child_size.unwrap_or(0);
-                    season_count += lib.library_child_size.unwrap_or(0);
-                    show_count += lib.library_size
+                        .set(lib.count as f64);
+                    episode_count += lib.grand_child_count.unwrap_or(0);
+                    season_count += lib.child_count.unwrap_or(0);
+                    show_count += lib.count
                 }
                 _ => {
-                    plex_library
+                    library_label
                         .get_or_create(&library_labels)
-                        .set(lib.library_size as f64);
+                        .set(lib.count as f64);
                 }
             };
         });
     });
-    plex_movie_count
+    movie_count_label
         .get_or_create(&EmptyLabel {})
         .set(movie_count as f64);
-    plex_show_count
+    show_count_label
         .get_or_create(&EmptyLabel {})
         .set(show_count as f64);
-    plex_season_count
+    season_count_label
         .get_or_create(&EmptyLabel {})
         .set(season_count as f64);
-    plex_episode_count
+    episode_count_label
         .get_or_create(&EmptyLabel {})
         .set(episode_count as f64);
 }
