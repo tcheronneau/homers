@@ -290,3 +290,34 @@ pub struct Location {
     pub latitude: String,
     pub longitude: String,
 }
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct LibraryCount {
+    pub name: String,
+    pub media_type: String,
+    pub count: i64,
+    pub child_count: Option<i64>,
+    pub grand_child_count: Option<i64>,
+}
+impl From<plex::LibraryInfos> for LibraryCount {
+    fn from(library: plex::LibraryInfos) -> Self {
+        LibraryCount {
+            name: library.library_name,
+            media_type: library.library_type,
+            count: library.library_size,
+            child_count: library.library_child_size,
+            grand_child_count: library.library_grand_child_size,
+        }
+    }
+}
+impl From<jellyfin::LibraryInfos> for LibraryCount {
+    fn from(counts: jellyfin::LibraryInfos) -> Self {
+        LibraryCount {
+            name: counts.name,
+            media_type: counts.library_type,
+            count: counts.count,
+            child_count: counts.child_count,
+            grand_child_count: counts.grand_child_count,
+        }
+    }
+}

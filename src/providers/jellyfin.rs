@@ -3,7 +3,9 @@ use log::error;
 use reqwest::header;
 use serde::{Deserialize, Serialize};
 
-use crate::providers::structs::jellyfin::{JellyfinLibraryCounts, SessionResponse};
+use crate::providers::structs::jellyfin::{
+    JellyfinLibraryCounts, LibraryInfos, SessionResponse, User as JellyfinUser,
+};
 use crate::providers::structs::{Session, User};
 use crate::providers::{Provider, ProviderError, ProviderErrorKind};
 
@@ -43,31 +45,6 @@ impl Jellyfin {
             api_key: api_key.to_string(),
             client,
         })
-    }
-
-    pub async fn get_library_counts(&self) -> Result<JellyfinLibraryCounts, ProviderError> {
-        let url = format!("{}/Items/Counts", self.address);
-        let response = match self.client.get(&url).send().await {
-            Ok(response) => response,
-            Err(e) => {
-                return Err(ProviderError::new(
-                    Provider::Jellyfin,
-                    ProviderErrorKind::GetError,
-                    &format!("{:?}", e),
-                ));
-            }
-        };
-        let library_counts: JellyfinLibraryCounts = match response.json().await {
-            Ok(library_counts) => library_counts,
-            Err(e) => {
-                return Err(ProviderError::new(
-                    Provider::Jellyfin,
-                    ProviderErrorKind::ParseError,
-                    &format!("{:?}", e),
-                ));
-            }
-        };
-        Ok(library_counts)
     }
 
     async fn get_sessions(&self) -> Result<Vec<Session>, ProviderError> {
@@ -117,13 +94,46 @@ impl Jellyfin {
                 return Vec::new();
             }
         };
-        let users: Vec<User> = match response.json().await {
+        let users: Vec<JellyfinUser> = match response.json().await {
             Ok(users) => users,
             Err(e) => {
                 error!("Failed to parse users: {}", e);
                 return Vec::new();
             }
         };
-        users
+        users.into_iter().map(User::from).collect()
+    }
+    async fn get_library_counts(&self) -> Result<JellyfinLibraryCounts, ProviderError> {
+        let url = format!("{}/Items/Counts", self.address);
+        let response = match self.client.get(&url).send().await {
+            Ok(response) => response,
+            Err(e) => {
+                return Err(ProviderError::new(
+                    Provider::Jellyfin,
+                    ProviderErrorKind::GetError,
+                    &format!("{:?}", e),
+                ));
+            }
+        };
+        let library_counts: JellyfinLibraryCounts = match response.json().await {
+            Ok(library_counts) => library_counts,
+            Err(e) => {
+                return Err(ProviderError::new(
+                    Provider::Jellyfin,
+                    ProviderErrorKind::ParseError,
+                    &format!("{:?}", e),
+                ));
+            }
+        };
+        Ok(library_counts)
+    }
+    pub async fn get_library(&self) -> Vec<LibraryInfos> {
+        match self.get_library_counts().await {
+            Ok(library_counts) => library_counts.into(),
+            Err(e) => {
+                error!("Failed to get library counts: {}", e);
+                Vec::new()
+            }
+        }
     }
 }

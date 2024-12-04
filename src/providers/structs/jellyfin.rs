@@ -65,6 +65,55 @@ pub struct JellyfinLibraryCounts {
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
+pub struct Users {
+    pub users: Vec<User>,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
 pub struct User {
     pub name: String,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct LibraryInfos {
+    pub name: String,
+    pub library_type: String,
+    pub count: i64,
+    pub child_count: Option<i64>,
+    pub grand_child_count: Option<i64>,
+}
+impl From<JellyfinLibraryCounts> for Vec<LibraryInfos> {
+    fn from(counts: JellyfinLibraryCounts) -> Self {
+        vec![
+            LibraryInfos {
+                name: "Movies".to_string(),
+                library_type: "Movie".to_string(),
+                count: counts.movie_count,
+                child_count: None,
+                grand_child_count: None,
+            },
+            LibraryInfos {
+                name: "Shows".to_string(),
+                library_type: "Shows".to_string(),
+                count: counts.series_count,
+                child_count: None,
+                grand_child_count: Some(counts.episode_count),
+            },
+            LibraryInfos {
+                name: "Music".to_string(),
+                library_type: "Music".to_string(),
+                count: counts.album_count,
+                child_count: Some(counts.artist_count),
+                grand_child_count: Some(counts.song_count),
+            },
+            LibraryInfos {
+                name: "Books".to_string(),
+                library_type: "Book".to_string(),
+                count: counts.book_count,
+                child_count: None,
+                grand_child_count: None,
+            },
+        ]
+    }
 }

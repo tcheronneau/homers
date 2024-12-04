@@ -8,11 +8,10 @@ use std::collections::HashMap;
 use std::sync::atomic::AtomicU64;
 
 use crate::providers::overseerr::OverseerrRequest;
-use crate::providers::plex::LibraryInfos;
 use crate::providers::radarr::RadarrMovie;
 use crate::providers::sonarr::SonarrEpisode;
 use crate::providers::structs::tautulli::Library;
-use crate::providers::structs::{BandwidthLocation, Session, User};
+use crate::providers::structs::{BandwidthLocation, LibraryCount, Session, User};
 use crate::providers::tautulli::SessionSummary;
 
 #[derive(PartialEq, Debug, Eq, Copy, Clone)]
@@ -29,18 +28,18 @@ pub enum TaskResult {
     Radarr(HashMap<String, Vec<RadarrMovie>>),
     Overseerr(Vec<OverseerrRequest>),
     PlexSession(HashMap<String, Vec<Session>>, Vec<User>),
-    PlexLibrary(HashMap<String, Vec<LibraryInfos>>),
+    PlexLibrary(HashMap<String, Vec<LibraryCount>>),
     JellyfinSession(HashMap<String, Vec<Session>>, Vec<User>),
     Default,
 }
 
 #[derive(Clone, Hash, Eq, PartialEq, EncodeLabelSet, Debug)]
-struct PlexSessionBandwidth {
+struct SessionBandwidth {
     pub name: String,
     pub location: String,
 }
 #[derive(Clone, Hash, Eq, PartialEq, EncodeLabelSet, Debug)]
-struct PlexSessionLabels {
+struct SessionLabels {
     pub name: String,
     pub title: String,
     pub user: String,
@@ -170,13 +169,13 @@ pub fn format_metrics(task_result: Vec<TaskResult>) -> anyhow::Result<String> {
             TaskResult::Radarr(movies) => format_radarr_metrics(movies, &mut registry),
             TaskResult::Overseerr(overseerr) => format_overseerr_metrics(overseerr, &mut registry),
             TaskResult::PlexSession(sessions, users) => {
-                format_plex_session_metrics(sessions, users, &mut registry)
+                format_session_metrics("plex", sessions, users, &mut registry)
             }
             TaskResult::PlexLibrary(libraries) => {
                 format_plex_library_metrics(libraries, &mut registry)
             }
             TaskResult::JellyfinSession(sessions, users) => {
-                format_plex_session_metrics(sessions, users, &mut registry)
+                format_session_metrics("jellyfin", sessions, users, &mut registry)
             }
             TaskResult::Default => return Err(anyhow::anyhow!("No task result")),
         }
@@ -357,30 +356,64 @@ fn format_overseerr_metrics(requests: Vec<OverseerrRequest>, registry: &mut Regi
     });
 }
 
-fn format_plex_session_metrics(
+fn format_session_metrics(
+    kind: &str,
     sessions: HashMap<String, Vec<Session>>,
     users: Vec<User>,
     registry: &mut Registry,
 ) {
     debug!("Formatting {sessions:?} as Prometheus");
-    let plex_sessions = Family::<PlexSessionLabels, Gauge<f64, AtomicU64>>::default();
-    let plex_sessions_percentage = Family::<PlexSessionLabels, Gauge<f64, AtomicU64>>::default();
-    let plex_session_bandwidth = Family::<PlexSessionBandwidth, Gauge<f64, AtomicU64>>::default();
-    registry.register(
-        "plex_sessions",
-        format!("Plex sessions status"),
-        plex_sessions.clone(),
-    );
-    registry.register(
-        "plex_sessions_percentage",
-        format!("Plex sessions percentage status"),
-        plex_sessions_percentage.clone(),
-    );
-    registry.register(
-        "plex_session_bandwidth",
-        format!("Plex session bandwidth"),
-        plex_session_bandwidth.clone(),
-    );
+    let sessions_labels = Family::<SessionLabels, Gauge<f64, AtomicU64>>::default();
+    let sessions_percentage = Family::<SessionLabels, Gauge<f64, AtomicU64>>::default();
+    let session_bandwidth = Family::<SessionBandwidth, Gauge<f64, AtomicU64>>::default();
+    match kind {
+        "plex" => {
+            registry.register(
+                "plex_sessions",
+                format!("Plex sessions status"),
+                sessions_labels.clone(),
+            );
+            registry.register(
+                "plex_sessions_percentage",
+                format!("Plex sessions percentage status"),
+                sessions_percentage.clone(),
+            );
+            registry.register(
+                "plex_session_bandwidth",
+                format!("Plex session bandwidth"),
+                session_bandwidth.clone(),
+            );
+        }
+        "jellyfin" => {
+            registry.register(
+                "jellyfin_sessions",
+                format!("Jellyfin sessions status"),
+                sessions_labels.clone(),
+            );
+            registry.register(
+                "jellyfin_sessions_percentage",
+                format!("Jellyfin sessions percentage status"),
+                sessions_percentage.clone(),
+            );
+        }
+        _ => {
+            registry.register(
+                "sessions",
+                format!("Sessions status"),
+                sessions_labels.clone(),
+            );
+            registry.register(
+                "sessions_percentage",
+                format!("Sessions percentage status"),
+                sessions_percentage.clone(),
+            );
+            registry.register(
+                "session_bandwidth",
+                format!("Session bandwidth"),
+                session_bandwidth.clone(),
+            );
+        }
+    }
     let mut wan_bandwidth = 0.0;
     let mut lan_bandwidth = 0.0;
     let mut inactive_users = users;
@@ -392,7 +425,7 @@ fn format_plex_session_metrics(
                 BandwidthLocation::Unknown => {}
             };
             inactive_users.retain(|user| user.name != session.user);
-            let session_labels = PlexSessionLabels {
+            let session_labels = SessionLabels {
                 name: name.clone(),
                 title: session.title,
                 user: session.user,
@@ -413,14 +446,14 @@ fn format_plex_session_metrics(
                 latitude: session.location.latitude,
             };
 
-            plex_sessions_percentage
+            sessions_percentage
                 .get_or_create(&session_labels)
                 .set(session.progress as f64);
-            plex_sessions.get_or_create(&session_labels).set(1.0);
+            sessions_labels.get_or_create(&session_labels).set(1.0);
         });
         inactive_users.iter().for_each(|user| {
-            plex_sessions
-                .get_or_create(&PlexSessionLabels {
+            sessions_labels
+                .get_or_create(&SessionLabels {
                     name: name.to_string(),
                     title: "".to_string(),
                     user: user.name.clone(),
@@ -442,22 +475,27 @@ fn format_plex_session_metrics(
                 })
                 .set(0.0);
         });
-        plex_session_bandwidth
-            .get_or_create(&PlexSessionBandwidth {
-                name: name.clone(),
-                location: "LAN".to_string(),
-            })
-            .set(lan_bandwidth);
-        plex_session_bandwidth
-            .get_or_create(&PlexSessionBandwidth {
-                name,
-                location: "WAN".to_string(),
-            })
-            .set(wan_bandwidth);
+        match kind {
+            "plex" => {
+                session_bandwidth
+                    .get_or_create(&SessionBandwidth {
+                        name: name.clone(),
+                        location: "LAN".to_string(),
+                    })
+                    .set(lan_bandwidth);
+                session_bandwidth
+                    .get_or_create(&SessionBandwidth {
+                        name,
+                        location: "WAN".to_string(),
+                    })
+                    .set(wan_bandwidth);
+            }
+            _ => {}
+        }
     });
 }
 fn format_plex_library_metrics(
-    libraries: HashMap<String, Vec<LibraryInfos>>,
+    libraries: HashMap<String, Vec<LibraryCount>>,
     registry: &mut Registry,
 ) {
     debug!("Formatting {libraries:?} as Prometheus");
@@ -505,34 +543,34 @@ fn format_plex_library_metrics(
         library.into_iter().for_each(|lib| {
             let library_labels = PlexLibraryLabels {
                 name: name.clone(),
-                library_name: lib.library_name.clone(),
-                library_type: lib.library_type.clone(),
+                library_name: lib.name.clone(),
+                library_type: lib.media_type.clone(),
             };
-            match lib.library_type.as_str() {
+            match lib.media_type.as_str() {
                 "movie" => {
-                    movie_count += lib.library_size;
+                    movie_count += lib.count;
                     plex_library
                         .get_or_create(&library_labels)
-                        .set(lib.library_size as f64);
+                        .set(lib.count as f64);
                 }
                 "show" => {
                     plex_show_library
                         .get_or_create(&PlexShowLabels {
                             name: name.clone(),
-                            library_name: lib.library_name.clone(),
-                            library_type: lib.library_type.clone(),
-                            season_count: lib.library_child_size,
-                            episode_count: lib.library_grand_child_size,
+                            library_name: lib.name.clone(),
+                            library_type: lib.media_type.clone(),
+                            season_count: lib.child_count,
+                            episode_count: lib.grand_child_count,
                         })
-                        .set(lib.library_size as f64);
-                    episode_count += lib.library_grand_child_size.unwrap_or(0);
-                    season_count += lib.library_child_size.unwrap_or(0);
-                    show_count += lib.library_size
+                        .set(lib.count as f64);
+                    episode_count += lib.grand_child_count.unwrap_or(0);
+                    season_count += lib.child_count.unwrap_or(0);
+                    show_count += lib.count
                 }
                 _ => {
                     plex_library
                         .get_or_create(&library_labels)
-                        .set(lib.library_size as f64);
+                        .set(lib.count as f64);
                 }
             };
         });

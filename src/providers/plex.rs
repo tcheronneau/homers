@@ -4,7 +4,7 @@ use reqwest;
 use reqwest::header;
 use serde::{Deserialize, Serialize};
 
-pub use crate::providers::structs::plex::MediaContainer;
+pub use crate::providers::structs::plex::{LibraryInfos, MediaContainer};
 use crate::providers::structs::plex::{Metadata, PlexResponse, StatUser};
 use crate::providers::structs::{Session, User};
 use crate::providers::{Provider, ProviderError, ProviderErrorKind};
@@ -13,14 +13,6 @@ use crate::providers::{Provider, ProviderError, ProviderErrorKind};
 pub struct PlexViews {
     pub episodes_viewed: i64,
     pub movies_viewed: i64,
-}
-#[derive(Debug, Deserialize, Clone, Serialize)]
-pub struct LibraryInfos {
-    pub library_name: String,
-    pub library_type: String,
-    pub library_size: i64,
-    pub library_child_size: Option<i64>,
-    pub library_grand_child_size: Option<i64>,
 }
 
 #[derive(Debug, Deserialize, Clone, Serialize)]

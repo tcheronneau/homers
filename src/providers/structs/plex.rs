@@ -28,28 +28,6 @@ pub enum Metadata {
     Default(serde_json::Value),
 }
 
-#[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum LibraryType {
-    Show,
-    Movie,
-    Photo,
-    Artist,
-    #[default]
-    Default,
-}
-impl Display for LibraryType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            LibraryType::Show => write!(f, "Show"),
-            LibraryType::Movie => write!(f, "Movie"),
-            LibraryType::Photo => write!(f, "Photo"),
-            LibraryType::Artist => write!(f, "Music"),
-            LibraryType::Default => write!(f, "Unknown"),
-        }
-    }
-}
-
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ActivityContainer {
@@ -259,4 +237,12 @@ impl Display for StreamDecision {
             StreamDecision::Transcode => write!(f, "Transcode"),
         }
     }
+}
+#[derive(Debug, Deserialize, Clone, Serialize)]
+pub struct LibraryInfos {
+    pub library_name: String,
+    pub library_type: String,
+    pub library_size: i64,
+    pub library_child_size: Option<i64>,
+    pub library_grand_child_size: Option<i64>,
 }
