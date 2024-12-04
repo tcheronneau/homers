@@ -1,4 +1,3 @@
-use ipgeolocate::{Locator, Service};
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 
@@ -191,26 +190,6 @@ pub struct Location {
     pub ip_address: String,
     pub latitude: String,
     pub longitude: String,
-}
-
-async fn get_ip_info(ip: &str) -> Location {
-    let service = Service::IpApi;
-    match Locator::get(ip, service).await {
-        Ok(location) => Location {
-            city: location.city,
-            country: location.country,
-            ip_address: ip.to_string(),
-            latitude: location.latitude,
-            longitude: location.longitude,
-        },
-        Err(_) => Location {
-            city: "Unknown".to_string(),
-            country: "Unknown".to_string(),
-            ip_address: ip.to_string(),
-            latitude: "0.0".to_string(),
-            longitude: "0.0".to_string(),
-        },
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

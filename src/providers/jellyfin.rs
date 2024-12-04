@@ -4,7 +4,7 @@ use reqwest::header;
 use serde::{Deserialize, Serialize};
 
 use crate::providers::structs::jellyfin::{
-    JellyfinLibraryCounts, LibraryInfos, SessionResponse, User as JellyfinUser,
+    JellyfinLibraryCounts, SessionResponse, User as JellyfinUser,
 };
 use crate::providers::structs::{LibraryCount, Session, User};
 use crate::providers::{Provider, ProviderError, ProviderErrorKind};

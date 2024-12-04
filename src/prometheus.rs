@@ -4,7 +4,6 @@ use prometheus_client::encoding::EncodeLabelSet;
 use prometheus_client::metrics::family::Family;
 use prometheus_client::metrics::gauge::Gauge;
 use prometheus_client::registry::Registry;
-use rocket::http::MediaType;
 use std::collections::HashMap;
 use std::sync::atomic::AtomicU64;
 
