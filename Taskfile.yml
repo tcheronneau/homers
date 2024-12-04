@@ -11,7 +11,7 @@ vars:
 tasks:
   build: 
     cmds:
-      - cmd: docker build -t mcth/homers:{{.DOCKER_TAG}} .
+      - cmd: docker buildx build --push --platform linux/amd64 -t mcth/homers:{{.DOCKER_TAG}} .
   push:
     cmds:
       - cmd: docker push mcth/homers:{{.DOCKER_TAG}}

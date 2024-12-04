@@ -96,16 +96,16 @@ impl Radarr {
                 Vec::new()
             }
         };
-        let mut radarr_movies = Vec::new();
-        for movie in movies {
-            radarr_movies.push(RadarrMovie {
+        let radarr_movies = movies
+            .into_iter()
+            .map(|movie| RadarrMovie {
                 title: movie.title.clone(),
                 has_file: movie.has_file,
                 monitored: movie.monitored,
                 is_available: movie.is_available,
                 missing_available: self.set_missing_movies(&movie),
-            });
-        }
+            })
+            .collect::<Vec<RadarrMovie>>();
         radarr_movies
     }
     fn set_missing_movies(&self, movie: &Movie) -> bool {

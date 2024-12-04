@@ -8,6 +8,7 @@ mod http_server;
 mod prometheus;
 mod providers;
 
+use crate::providers::jellyfin::Jellyfin;
 use crate::providers::overseerr::Overseerr;
 use crate::providers::radarr::Radarr;
 use crate::providers::sonarr::Sonarr;
@@ -81,28 +82,42 @@ async fn main() -> Result<()> {
         .log_level()
         .expect("Log level cannot be not available");
     let config = config::read(args.config.clone(), log_level)?;
-    let plex = config.plex.expect("plex config not found");
-    for (name, p) in plex {
-        let plex = providers::plex::Plex::new(&name, &p.address, &p.token)?;
-        let history = match plex.get_history().await {
-            Ok(history) => history,
-            Err(e) => {
-                eprintln!("Failed to get history: {}", e);
-                std::process::exit(1);
-            }
-        };
-        let mut count_movie = 0;
-        let mut episode_count = 0;
-        history.media_container.metadata.iter().for_each(|item| {
-            if item.type_field == "episode" {
-                episode_count += 1;
-            } else if item.type_field == "movie" {
-                count_movie += 1;
-            }
-        });
-        println!("Movies watch: {}", count_movie);
-        println!("Episodes watch: {}", episode_count);
+    let jelly_conf = config.jellyfin.expect("Jellyfin config not found");
+    for (name, j) in jelly_conf {
+        let jellyfin = Jellyfin::new(&name, &j.address, &j.api_key)?;
+        let session = jellyfin.get_sessions().await?;
+        println!("{:?}", session);
+        let library_counts = jellyfin.get_library_counts().await?;
+        println!("{:?}", library_counts);
     }
+
+    //let plex = config.plex.expect("plex config not found");
+    //for (name, p) in plex {
+    //    let plex = providers::plex::Plex::new(&name, &p.address, &p.token)?;
+    //    let users = plex.get_users().await;
+    //    for user in users {
+    //        println!("{:?}", user);
+    //    }
+    //}
+    //    let history = match plex.get_history().await {
+    //        Ok(history) => history,
+    //        Err(e) => {
+    //            eprintln!("Failed to get history: {}", e);
+    //            std::process::exit(1);
+    //        }
+    //    };
+    //    let mut count_movie = 0;
+    //    let mut episode_count = 0;
+    //    history.media_container.metadata.iter().for_each(|item| {
+    //        if item.type_field == "episode" {
+    //            episode_count += 1;
+    //        } else if item.type_field == "movie" {
+    //            count_movie += 1;
+    //        }
+    //    });
+    //    println!("Movies watch: {}", count_movie);
+    //    println!("Episodes watch: {}", episode_count);
+    //}
 
     //let overseerr_cfg = config.overseerr.clone().expect("Radarr config not found");
     //let overseerr = Overseerr::new(overseerr_cfg.address, overseerr_cfg.api_key)?;

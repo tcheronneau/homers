@@ -6,9 +6,8 @@ RUN USER=root cargo new homers
 WORKDIR /usr/src/homers
 COPY Cargo.toml Cargo.lock ./
 COPY src ./src
-RUN cargo build --release
 
-RUN cargo install --path .
+RUN cargo install --locked --path .
 
 # Bundle Stage
 FROM debian:trixie-slim

@@ -9,6 +9,7 @@ use serde::Deserialize;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
+use crate::providers::jellyfin::Jellyfin;
 use crate::providers::overseerr::Overseerr;
 use crate::providers::plex::Plex;
 use crate::providers::radarr::Radarr;
@@ -22,6 +23,7 @@ pub struct Config {
     pub radarr: Option<HashMap<String, Radarr>>,
     pub overseerr: Option<Overseerr>,
     pub plex: Option<HashMap<String, Plex>>,
+    pub jellyfin: Option<HashMap<String, Jellyfin>>,
     pub http: rocket::Config,
 }
 impl Default for Config {
@@ -32,6 +34,7 @@ impl Default for Config {
             radarr: None,
             overseerr: None,
             plex: None,
+            jellyfin: None,
             http: rocket::Config::default(),
         }
     }
@@ -47,6 +50,8 @@ pub enum Task {
     TautulliLibrary(Tautulli),
     PlexSession(Plex),
     PlexLibrary(Plex),
+    JellyfinSession(Jellyfin),
+    JellyfinLibrary(Jellyfin),
     Default,
 }
 
@@ -118,6 +123,13 @@ pub fn get_tasks(config: Config) -> anyhow::Result<Vec<Task>> {
             let client = Plex::new(&name, remove_trailing_slash(&p.address), &p.token)?;
             tasks.push(Task::PlexSession(client.clone()));
             tasks.push(Task::PlexLibrary(client));
+        }
+    }
+    if let Some(jellyfin) = config.jellyfin {
+        for (name, j) in jellyfin {
+            let client = Jellyfin::new(&name, remove_trailing_slash(&j.address), &j.api_key)?;
+            tasks.push(Task::JellyfinSession(client.clone()));
+            tasks.push(Task::JellyfinLibrary(client));
         }
     }
     Ok(tasks)
