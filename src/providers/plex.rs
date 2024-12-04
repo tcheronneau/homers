@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 pub use crate::providers::structs::plex::{LibraryInfos, MediaContainer};
 use crate::providers::structs::plex::{Metadata, PlexResponse, StatUser};
-use crate::providers::structs::{Session, User};
+use crate::providers::structs::{LibraryCount, Session, User};
 use crate::providers::{Provider, ProviderError, ProviderErrorKind};
 
 #[derive(Debug, Deserialize, Clone, Serialize)]
@@ -102,7 +102,7 @@ impl Plex {
         Ok(library_items)
     }
 
-    pub async fn get_all_library_size(&self) -> Vec<LibraryInfos> {
+    pub async fn get_all_library_size(&self) -> Vec<LibraryCount> {
         let libraries = match self.get_all_libraries().await {
             Ok(libraries) => libraries,
             Err(e) => {
@@ -169,7 +169,7 @@ impl Plex {
                 }),
             }
         }
-        library_infos
+        library_infos.into_iter().map(|item| item.into()).collect()
     }
 
     pub async fn get_current_sessions(&self) -> Vec<Session> {

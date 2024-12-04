@@ -292,9 +292,39 @@ pub struct Location {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum MediaType {
+    Movie,
+    Show,
+    Music,
+    Book,
+    Unknown,
+}
+impl From<String> for MediaType {
+    fn from(media_type: String) -> Self {
+        match media_type.as_str() {
+            "movie" => MediaType::Movie,
+            "show" | "shows" => MediaType::Show,
+            "music" => MediaType::Music,
+            "book" => MediaType::Book,
+            _ => MediaType::Unknown,
+        }
+    }
+}
+impl ToString for MediaType {
+    fn to_string(&self) -> String {
+        match self {
+            MediaType::Movie => "Movie".to_string(),
+            MediaType::Show => "Show".to_string(),
+            MediaType::Music => "Music".to_string(),
+            MediaType::Book => "Book".to_string(),
+            MediaType::Unknown => "Unknown".to_string(),
+        }
+    }
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct LibraryCount {
     pub name: String,
-    pub media_type: String,
+    pub media_type: MediaType,
     pub count: i64,
     pub child_count: Option<i64>,
     pub grand_child_count: Option<i64>,
@@ -303,7 +333,7 @@ impl From<plex::LibraryInfos> for LibraryCount {
     fn from(library: plex::LibraryInfos) -> Self {
         LibraryCount {
             name: library.library_name,
-            media_type: library.library_type,
+            media_type: library.library_type.into(),
             count: library.library_size,
             child_count: library.library_child_size,
             grand_child_count: library.library_grand_child_size,
@@ -314,7 +344,7 @@ impl From<jellyfin::LibraryInfos> for LibraryCount {
     fn from(counts: jellyfin::LibraryInfos) -> Self {
         LibraryCount {
             name: counts.name,
-            media_type: counts.library_type,
+            media_type: counts.library_type.to_lowercase().into(),
             count: counts.count,
             child_count: counts.child_count,
             grand_child_count: counts.grand_child_count,

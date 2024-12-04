@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use crate::providers::structs::jellyfin::{
     JellyfinLibraryCounts, LibraryInfos, SessionResponse, User as JellyfinUser,
 };
-use crate::providers::structs::{Session, User};
+use crate::providers::structs::{LibraryCount, Session, User};
 use crate::providers::{Provider, ProviderError, ProviderErrorKind};
 
 #[derive(Debug, Deserialize, Clone, Serialize)]
@@ -127,13 +127,17 @@ impl Jellyfin {
         };
         Ok(library_counts)
     }
-    pub async fn get_library(&self) -> Vec<LibraryInfos> {
-        match self.get_library_counts().await {
+    pub async fn get_library(&self) -> Vec<LibraryCount> {
+        let library_infos = match self.get_library_counts().await {
             Ok(library_counts) => library_counts.into(),
             Err(e) => {
                 error!("Failed to get library counts: {}", e);
                 Vec::new()
             }
-        }
+        };
+        library_infos
+            .into_iter()
+            .map(|library| library.into())
+            .collect()
     }
 }

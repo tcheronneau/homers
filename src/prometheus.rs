@@ -4,6 +4,7 @@ use prometheus_client::encoding::EncodeLabelSet;
 use prometheus_client::metrics::family::Family;
 use prometheus_client::metrics::gauge::Gauge;
 use prometheus_client::registry::Registry;
+use rocket::http::MediaType;
 use std::collections::HashMap;
 use std::sync::atomic::AtomicU64;
 
@@ -11,7 +12,9 @@ use crate::providers::overseerr::OverseerrRequest;
 use crate::providers::radarr::RadarrMovie;
 use crate::providers::sonarr::SonarrEpisode;
 use crate::providers::structs::tautulli::Library;
-use crate::providers::structs::{BandwidthLocation, LibraryCount, Session, User};
+use crate::providers::structs::{
+    BandwidthLocation, LibraryCount, MediaType as LibraryMediaType, Session, User,
+};
 use crate::providers::tautulli::SessionSummary;
 
 #[derive(PartialEq, Debug, Eq, Copy, Clone)]
@@ -30,6 +33,7 @@ pub enum TaskResult {
     PlexSession(HashMap<String, Vec<Session>>, Vec<User>),
     PlexLibrary(HashMap<String, Vec<LibraryCount>>),
     JellyfinSession(HashMap<String, Vec<Session>>, Vec<User>),
+    JellyfinLibrary(HashMap<String, Vec<LibraryCount>>),
     Default,
 }
 
@@ -172,10 +176,13 @@ pub fn format_metrics(task_result: Vec<TaskResult>) -> anyhow::Result<String> {
                 format_session_metrics("plex", sessions, users, &mut registry)
             }
             TaskResult::PlexLibrary(libraries) => {
-                format_plex_library_metrics(libraries, &mut registry)
+                format_library_metrics("plex", libraries, &mut registry)
             }
             TaskResult::JellyfinSession(sessions, users) => {
                 format_session_metrics("jellyfin", sessions, users, &mut registry)
+            }
+            TaskResult::JellyfinLibrary(libraries) => {
+                format_library_metrics("jellyfin", libraries, &mut registry)
             }
             TaskResult::Default => return Err(anyhow::anyhow!("No task result")),
         }
@@ -494,47 +501,66 @@ fn format_session_metrics(
         }
     });
 }
-fn format_plex_library_metrics(
+fn format_library_metrics(
+    kind: &str,
     libraries: HashMap<String, Vec<LibraryCount>>,
     registry: &mut Registry,
 ) {
     debug!("Formatting {libraries:?} as Prometheus");
-    let plex_movie_count = Family::<EmptyLabel, Gauge<f64, AtomicU64>>::default();
-    let plex_show_count = Family::<EmptyLabel, Gauge<f64, AtomicU64>>::default();
-    let plex_season_count = Family::<EmptyLabel, Gauge<f64, AtomicU64>>::default();
-    let plex_episode_count = Family::<EmptyLabel, Gauge<f64, AtomicU64>>::default();
-    let plex_show_library = Family::<PlexShowLabels, Gauge<f64, AtomicU64>>::default();
-    let plex_library = Family::<PlexLibraryLabels, Gauge<f64, AtomicU64>>::default();
-    registry.register(
-        "plex_library",
-        format!("Plex library status"),
-        plex_library.clone(),
-    );
-    registry.register(
-        "plex_show_library",
-        format!("Plex show library status"),
-        plex_show_library.clone(),
-    );
-    registry.register(
-        "plex_movie_count",
-        format!("Plex movie count"),
-        plex_movie_count.clone(),
-    );
-    registry.register(
-        "plex_show_count",
-        format!("Plex show count"),
-        plex_show_count.clone(),
-    );
-    registry.register(
-        "plex_season_count",
-        format!("Plex season count"),
-        plex_season_count.clone(),
-    );
-    registry.register(
-        "plex_episode_count",
-        format!("Plex episode count"),
-        plex_episode_count.clone(),
-    );
+    let movie_count_label = Family::<EmptyLabel, Gauge<f64, AtomicU64>>::default();
+    let show_count_label = Family::<EmptyLabel, Gauge<f64, AtomicU64>>::default();
+    let season_count_label = Family::<EmptyLabel, Gauge<f64, AtomicU64>>::default();
+    let episode_count_label = Family::<EmptyLabel, Gauge<f64, AtomicU64>>::default();
+    let show_library_label = Family::<PlexShowLabels, Gauge<f64, AtomicU64>>::default();
+    let library_label = Family::<PlexLibraryLabels, Gauge<f64, AtomicU64>>::default();
+    match kind {
+        "plex" => {
+            registry.register(
+                "plex_movie_count",
+                "Plex movie count",
+                movie_count_label.clone(),
+            );
+            registry.register(
+                "plex_show_count",
+                "Plex show count",
+                show_count_label.clone(),
+            );
+            registry.register(
+                "plex_season_count",
+                "Plex season count",
+                season_count_label.clone(),
+            );
+            registry.register(
+                "plex_episode_count",
+                "Plex episode count",
+                episode_count_label.clone(),
+            );
+            registry.register(
+                "plex_show_library",
+                "Plex show library",
+                show_library_label.clone(),
+            );
+            registry.register("plex_library", "Plex library", library_label.clone());
+        }
+        "jellyfin" => {
+            registry.register(
+                "jellyfin_movie_count",
+                "Jellyfin movie count",
+                movie_count_label.clone(),
+            );
+            registry.register(
+                "jellyfin_show_count",
+                "Jellyfin show count",
+                show_count_label.clone(),
+            );
+            registry.register(
+                "jellyfin_episode_count",
+                "Jellyfin episode count",
+                episode_count_label.clone(),
+            );
+        }
+        _ => {}
+    }
     let mut movie_count = 0;
     let mut episode_count = 0;
     let mut season_count = 0;
@@ -544,21 +570,21 @@ fn format_plex_library_metrics(
             let library_labels = PlexLibraryLabels {
                 name: name.clone(),
                 library_name: lib.name.clone(),
-                library_type: lib.media_type.clone(),
+                library_type: lib.media_type.to_string(),
             };
-            match lib.media_type.as_str() {
-                "movie" => {
+            match lib.media_type {
+                LibraryMediaType::Movie => {
                     movie_count += lib.count;
-                    plex_library
+                    library_label
                         .get_or_create(&library_labels)
                         .set(lib.count as f64);
                 }
-                "show" => {
-                    plex_show_library
+                LibraryMediaType::Show => {
+                    show_library_label
                         .get_or_create(&PlexShowLabels {
                             name: name.clone(),
                             library_name: lib.name.clone(),
-                            library_type: lib.media_type.clone(),
+                            library_type: lib.media_type.to_string(),
                             season_count: lib.child_count,
                             episode_count: lib.grand_child_count,
                         })
@@ -568,23 +594,23 @@ fn format_plex_library_metrics(
                     show_count += lib.count
                 }
                 _ => {
-                    plex_library
+                    library_label
                         .get_or_create(&library_labels)
                         .set(lib.count as f64);
                 }
             };
         });
     });
-    plex_movie_count
+    movie_count_label
         .get_or_create(&EmptyLabel {})
         .set(movie_count as f64);
-    plex_show_count
+    show_count_label
         .get_or_create(&EmptyLabel {})
         .set(show_count as f64);
-    plex_season_count
+    season_count_label
         .get_or_create(&EmptyLabel {})
         .set(season_count as f64);
-    plex_episode_count
+    episode_count_label
         .get_or_create(&EmptyLabel {})
         .set(episode_count as f64);
 }

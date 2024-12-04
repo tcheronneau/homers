@@ -119,6 +119,12 @@ async fn process_tasks(tasks: Vec<Task>) -> Result<Vec<TaskResult>, JoinError> {
                     let users = jellyfin.get_users().await;
                     Ok(TaskResult::JellyfinSession(result, users))
                 }
+                Task::JellyfinLibrary(jellyfin) => {
+                    let name = &jellyfin.name;
+                    let result = jellyfin.get_library().await;
+                    let result = HashMap::from([(name.to_string(), result)]);
+                    Ok(TaskResult::JellyfinLibrary(result))
+                }
                 Task::Default => Ok(TaskResult::Default),
             }
         })
