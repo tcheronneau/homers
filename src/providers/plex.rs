@@ -37,8 +37,10 @@ impl Plex {
     pub fn new(name: &str, address: &str, token: &str) -> anyhow::Result<Plex> {
         let mut headers = header::HeaderMap::new();
         let mut header_token = header::HeaderValue::from_str(&token)?;
+        let header_container_size = header::HeaderValue::from_static("1000");
         header_token.set_sensitive(true);
         headers.insert("X-Plex-Token", header_token);
+        headers.insert("X-Plex-Container-Size", header_container_size);
         headers.insert(
             header::ACCEPT,
             header::HeaderValue::from_static("application/json"),

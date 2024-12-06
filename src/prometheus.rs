@@ -29,6 +29,7 @@ pub enum TaskResult {
     TautulliLibrary(Vec<Library>),
     Radarr(HashMap<String, Vec<RadarrMovie>>),
     Overseerr(Vec<OverseerrRequest>),
+    Jellyseerr(Vec<OverseerrRequest>),
     PlexSession(HashMap<String, Vec<Session>>, Vec<User>),
     PlexLibrary(HashMap<String, Vec<LibraryCount>>),
     JellyfinSession(HashMap<String, Vec<Session>>, Vec<User>),
@@ -170,7 +171,12 @@ pub fn format_metrics(task_result: Vec<TaskResult>) -> anyhow::Result<String> {
                 format_tautulli_library_metrics(libraries, &mut registry)
             }
             TaskResult::Radarr(movies) => format_radarr_metrics(movies, &mut registry),
-            TaskResult::Overseerr(overseerr) => format_overseerr_metrics(overseerr, &mut registry),
+            TaskResult::Overseerr(overseerr) => {
+                format_overseerr_metrics("overseerr", overseerr, &mut registry)
+            }
+            TaskResult::Jellyseerr(overseerr) => {
+                format_overseerr_metrics("jellyseerr", overseerr, &mut registry)
+            }
             TaskResult::PlexSession(sessions, users) => {
                 format_session_metrics("plex", sessions, users, &mut registry)
             }
@@ -338,12 +344,12 @@ fn format_radarr_metrics(radarr_hash: HashMap<String, Vec<RadarrMovie>>, registr
     });
 }
 
-fn format_overseerr_metrics(requests: Vec<OverseerrRequest>, registry: &mut Registry) {
+fn format_overseerr_metrics(kind: &str, requests: Vec<OverseerrRequest>, registry: &mut Registry) {
     debug!("Formatting {requests:?} as Prometheus");
     let overseerr_request = Family::<OverseerrLabels, Gauge<f64, AtomicU64>>::default();
     registry.register(
-        "overseerr_requests",
-        format!("overseerr requests status"),
+        format!("{}_requests", kind),
+        format!("{} requests status", kind),
         overseerr_request.clone(),
     );
 
