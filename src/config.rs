@@ -22,6 +22,7 @@ pub struct Config {
     pub sonarr: Option<HashMap<String, Sonarr>>,
     pub radarr: Option<HashMap<String, Radarr>>,
     pub overseerr: Option<Overseerr>,
+    pub jellyseerr: Option<Overseerr>,
     pub plex: Option<HashMap<String, Plex>>,
     pub jellyfin: Option<HashMap<String, Jellyfin>>,
     pub http: rocket::Config,
@@ -33,6 +34,7 @@ impl Default for Config {
             sonarr: None,
             radarr: None,
             overseerr: None,
+            jellyseerr: None,
             plex: None,
             jellyfin: None,
             http: rocket::Config::default(),
@@ -46,6 +48,7 @@ pub enum Task {
     SonarrMissing(Sonarr),
     Radarr(Radarr),
     Overseerr(Overseerr),
+    Jellyseerr(Overseerr),
     TautulliSession(Tautulli),
     TautulliLibrary(Tautulli),
     PlexSession(Plex),
@@ -117,6 +120,18 @@ pub fn get_tasks(config: Config) -> anyhow::Result<Vec<Task>> {
             reqs,
         )?;
         tasks.push(Task::Overseerr(overseerr));
+    }
+    if let Some(jellyseerr) = config.jellyseerr {
+        let mut reqs = 20;
+        if let Some(requests) = jellyseerr.requests {
+            reqs = requests;
+        }
+        let jellyseerr = Overseerr::new(
+            remove_trailing_slash(&jellyseerr.address),
+            &jellyseerr.api_key,
+            reqs,
+        )?;
+        tasks.push(Task::Jellyseerr(jellyseerr));
     }
     if let Some(plex) = config.plex {
         for (name, p) in plex {

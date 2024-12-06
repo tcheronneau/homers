@@ -99,6 +99,10 @@ async fn process_tasks(tasks: Vec<Task>) -> Result<Vec<TaskResult>, JoinError> {
                     let result = overseerr.get_overseerr_requests().await;
                     Ok(TaskResult::Overseerr(result))
                 }
+                Task::Jellyseerr(overseerr) => {
+                    let result = overseerr.get_overseerr_requests().await;
+                    Ok(TaskResult::Jellyseerr(result))
+                }
                 Task::PlexSession(plex) => {
                     let name = &plex.name;
                     let result = plex.get_current_sessions().await;
