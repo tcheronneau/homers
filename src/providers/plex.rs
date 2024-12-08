@@ -1,5 +1,5 @@
 use crate::providers::structs::AsyncFrom;
-use log::{debug, error};
+use log::{debug, error, info};
 use reqwest;
 use reqwest::header;
 use serde::{Deserialize, Serialize};
@@ -248,7 +248,7 @@ impl Plex {
         }
     }
     pub async fn get_statistics(&self) -> Result<PlexResponse, ProviderError> {
-        let url = format!("{}/statistics/bandwidth", self.address);
+        let url = format!("{}/statistics/bandwidth?timespan=0", self.address);
         debug!("Requesting statistics from {}", url);
         let response = match self.client.get(&url).send().await {
             Ok(response) => response,
@@ -282,6 +282,10 @@ impl Plex {
         };
         let statistics_container = match statistics.media_container {
             MediaContainer::StatisticsContainer(statistics_container) => statistics_container,
+            MediaContainer::Default(_) => {
+                info!("No session currently");
+                return Vec::new();
+            }
             _ => {
                 error!("Media container received does not match statistics container");
                 return Vec::new();

@@ -16,7 +16,7 @@ pub enum MediaContainer {
     LibraryContainer(LibraryContainer),
     LibraryItemsContainer(LibraryItemsContainer),
     ActivityContainer(ActivityContainer),
-    Default(serde_json::Value),
+    Default(MediaContainerDefault),
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -38,6 +38,12 @@ pub struct ActivityContainer {
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct MediaContainerDefault {
+    pub size: i64,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct StatisticsContainer {
     pub size: i64,
     #[serde(rename = "Account")]
@@ -51,11 +57,10 @@ pub struct LibraryContainer {
     #[serde(rename = "Directory")]
     pub directory: Vec<Directory>,
 }
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LibraryItemsContainer {
     pub size: i64,
-    pub allow_sync: bool,
     #[serde(rename = "librarySectionID")]
     pub library_section_id: i64,
     pub library_section_title: String,
@@ -63,6 +68,17 @@ pub struct LibraryItemsContainer {
     pub library_section_uuid: String,
     #[serde(rename = "Metadata")]
     pub metadata: Vec<Metadata>,
+}
+impl Default for LibraryItemsContainer {
+    fn default() -> Self {
+        LibraryItemsContainer {
+            size: 0,
+            library_section_id: 0,
+            library_section_title: "".to_string(),
+            library_section_uuid: "".to_string(),
+            metadata: vec![],
+        }
+    }
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
