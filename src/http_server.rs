@@ -4,15 +4,14 @@ use log::{error, info};
 use rocket::http::{Accept, ContentType, Status};
 use rocket::tokio::task;
 use rocket::{get, routes, Build, Responder, Rocket, State};
-use std::collections::HashMap;
 use std::process::exit;
 use tokio::task::JoinError;
 
 use crate::config::{get_tasks, Config};
 use crate::prometheus::{format_metrics, Format};
 use crate::tasks::{
-    RadarrMovieResult, SessionResult, SonarrEpisodeResult, SonarrMissingResult, Task, TaskResult,
-    TautulliLibraryResult, TautulliSessionResult,
+    LibraryResult, OverseerrRequestResult, RadarrMovieResult, SessionResult, SonarrEpisodeResult,
+    SonarrMissingResult, Task, TaskResult, TautulliLibraryResult, TautulliSessionResult,
 };
 
 #[derive(Responder, Debug, PartialEq, Eq)]
@@ -112,10 +111,18 @@ async fn process_tasks(tasks: Vec<Task>) -> Result<Vec<TaskResult>, JoinError> {
                 }
                 Task::Overseerr(overseerr) => {
                     let result = overseerr.get_overseerr_requests().await;
+                    let result = OverseerrRequestResult {
+                        kind: "overseerr".to_string(),
+                        requests: result,
+                    };
                     Ok(TaskResult::Overseerr(result))
                 }
                 Task::Jellyseerr(overseerr) => {
                     let result = overseerr.get_overseerr_requests().await;
+                    let result = OverseerrRequestResult {
+                        kind: "jellyseerr".to_string(),
+                        requests: result,
+                    };
                     Ok(TaskResult::Jellyseerr(result))
                 }
                 Task::PlexSession(plex) => {
@@ -133,7 +140,11 @@ async fn process_tasks(tasks: Vec<Task>) -> Result<Vec<TaskResult>, JoinError> {
                 Task::PlexLibrary(plex) => {
                     let name = &plex.name;
                     let result = plex.get_all_library_size().await;
-                    let result = HashMap::from([(name.to_string(), result)]);
+                    let result = LibraryResult {
+                        name: name.to_string(),
+                        kind: "plex".to_string(),
+                        libraries: result,
+                    };
                     Ok(TaskResult::PlexLibrary(result))
                 }
                 Task::JellyfinSession(jellyfin) => {
@@ -151,7 +162,11 @@ async fn process_tasks(tasks: Vec<Task>) -> Result<Vec<TaskResult>, JoinError> {
                 Task::JellyfinLibrary(jellyfin) => {
                     let name = &jellyfin.name;
                     let result = jellyfin.get_library().await;
-                    let result = HashMap::from([(name.to_string(), result)]);
+                    let result = LibraryResult {
+                        name: name.to_string(),
+                        kind: "jellyfin".to_string(),
+                        libraries: result,
+                    };
                     Ok(TaskResult::JellyfinLibrary(result))
                 }
                 Task::Default => Ok(TaskResult::Default),
