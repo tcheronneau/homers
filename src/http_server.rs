@@ -8,8 +8,12 @@ use std::collections::HashMap;
 use std::process::exit;
 use tokio::task::JoinError;
 
-use crate::config::{get_tasks, Config, Task};
-use crate::prometheus::{format_metrics, Format, TaskResult};
+use crate::config::{get_tasks, Config};
+use crate::prometheus::{format_metrics, Format};
+use crate::tasks::{
+    RadarrMovieResult, SessionResult, SonarrEpisodeResult, SonarrMissingResult, Task, TaskResult,
+    TautulliLibraryResult, TautulliSessionResult,
+};
 
 #[derive(Responder, Debug, PartialEq, Eq)]
 #[response(content_type = "text/plain; charset=utf-8")]
@@ -72,27 +76,38 @@ async fn process_tasks(tasks: Vec<Task>) -> Result<Vec<TaskResult>, JoinError> {
                 Task::SonarrToday(sonarr) => {
                     let name = &sonarr.name;
                     let result = sonarr.get_today_shows().await;
-                    let result = HashMap::from([(name.to_string(), result)]);
+                    let result = SonarrEpisodeResult {
+                        name: name.to_string(),
+                        episodes: result,
+                    };
                     Ok(TaskResult::SonarrToday(result))
                 }
                 Task::SonarrMissing(sonarr) => {
                     let name = &sonarr.name;
                     let result = sonarr.get_last_week_missing_shows().await;
-                    let result = HashMap::from([(name.to_string(), result)]);
+                    let result = SonarrMissingResult {
+                        name: name.to_string(),
+                        episodes: result,
+                    };
                     Ok(TaskResult::SonarrMissing(result))
                 }
                 Task::TautulliSession(tautulli) => {
                     let result = tautulli.get_session_summary().await;
+                    let result = TautulliSessionResult { sessions: result };
                     Ok(TaskResult::TautulliSession(result))
                 }
                 Task::TautulliLibrary(tautulli) => {
                     let result = tautulli.get_libraries().await;
+                    let result = TautulliLibraryResult { libraries: result };
                     Ok(TaskResult::TautulliLibrary(result))
                 }
                 Task::Radarr(radarr) => {
                     let name = &radarr.name;
                     let result = radarr.get_radarr_movies().await;
-                    let result = HashMap::from([(name.to_string(), result)]);
+                    let result = RadarrMovieResult {
+                        name: name.to_string(),
+                        movies: result,
+                    };
                     Ok(TaskResult::Radarr(result))
                 }
                 Task::Overseerr(overseerr) => {
@@ -106,9 +121,14 @@ async fn process_tasks(tasks: Vec<Task>) -> Result<Vec<TaskResult>, JoinError> {
                 Task::PlexSession(plex) => {
                     let name = &plex.name;
                     let result = plex.get_current_sessions().await;
-                    let result = HashMap::from([(name.to_string(), result)]);
                     let users = plex.get_users().await;
-                    Ok(TaskResult::PlexSession(result, users))
+                    let result = SessionResult {
+                        name: name.to_string(),
+                        kind: "plex".to_string(),
+                        users,
+                        sessions: result,
+                    };
+                    Ok(TaskResult::PlexSession(result))
                 }
                 Task::PlexLibrary(plex) => {
                     let name = &plex.name;
@@ -119,9 +139,14 @@ async fn process_tasks(tasks: Vec<Task>) -> Result<Vec<TaskResult>, JoinError> {
                 Task::JellyfinSession(jellyfin) => {
                     let name = &jellyfin.name;
                     let result = jellyfin.get_current_sessions().await;
-                    let result = HashMap::from([(name.to_string(), result)]);
                     let users = jellyfin.get_users().await;
-                    Ok(TaskResult::JellyfinSession(result, users))
+                    let result = SessionResult {
+                        name: name.to_string(),
+                        kind: "jellyfin".to_string(),
+                        users,
+                        sessions: result,
+                    };
+                    Ok(TaskResult::JellyfinSession(result))
                 }
                 Task::JellyfinLibrary(jellyfin) => {
                     let name = &jellyfin.name;

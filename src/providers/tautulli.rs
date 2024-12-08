@@ -4,6 +4,7 @@ use reqwest;
 use serde::{Deserialize, Serialize};
 
 use crate::providers::structs::tautulli;
+pub use crate::providers::structs::tautulli::Library;
 use crate::providers::{Provider, ProviderError, ProviderErrorKind};
 
 #[derive(Debug, Deserialize, Clone, Serialize)]
@@ -26,7 +27,7 @@ pub struct TautulliLocation {
     pub longitude: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SessionSummary {
     pub user: String,
     pub title: String,
@@ -94,7 +95,7 @@ impl Tautulli {
         };
         Ok(tautulli.response.data)
     }
-    pub async fn get_libraries(&self) -> Vec<tautulli::Library> {
+    pub async fn get_libraries(&self) -> Vec<Library> {
         let get_libraries = match self.get("get_libraries").await {
             Ok(libraries) => libraries,
             Err(e) => {
@@ -102,7 +103,7 @@ impl Tautulli {
                 return Vec::new();
             }
         };
-        let libraries: Vec<tautulli::Library> = get_libraries.into();
+        let libraries: Vec<Library> = get_libraries.into();
         libraries
     }
     async fn get_ip_info(&self, ip: &str) -> Result<TautulliLocation, ProviderError> {

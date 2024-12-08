@@ -6,6 +6,7 @@ mod config;
 mod http_server;
 mod prometheus;
 mod providers;
+mod tasks;
 
 #[cfg(debug_assertions)]
 #[derive(Copy, Clone, Debug, Default)]

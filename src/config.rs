@@ -16,6 +16,8 @@ use crate::providers::radarr::Radarr;
 use crate::providers::sonarr::Sonarr;
 use crate::providers::tautulli::Tautulli;
 
+use crate::tasks::Task;
+
 #[derive(Debug, Deserialize, Clone, Serialize)]
 pub struct Config {
     pub tautulli: Option<Tautulli>,
@@ -40,22 +42,6 @@ impl Default for Config {
             http: rocket::Config::default(),
         }
     }
-}
-
-#[derive(Debug, Deserialize, Clone)]
-pub enum Task {
-    SonarrToday(Sonarr),
-    SonarrMissing(Sonarr),
-    Radarr(Radarr),
-    Overseerr(Overseerr),
-    Jellyseerr(Overseerr),
-    TautulliSession(Tautulli),
-    TautulliLibrary(Tautulli),
-    PlexSession(Plex),
-    PlexLibrary(Plex),
-    JellyfinSession(Jellyfin),
-    JellyfinLibrary(Jellyfin),
-    Default,
 }
 
 pub fn read(config_file: PathBuf, log_level: Level) -> anyhow::Result<Config> {
