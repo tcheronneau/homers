@@ -1,11 +1,20 @@
 use anyhow::Result;
+use axum::{
+    extract::State,
+    http::header::CONTENT_TYPE,
+    http::StatusCode,
+    response::{Html, IntoResponse},
+    routing::get,
+    Router,
+};
 use futures::future::try_join_all;
 use log::{error, info};
-use rocket::http::{Accept, ContentType, Status};
-use rocket::tokio::task;
-use rocket::{get, routes, Build, Responder, Rocket, State};
-use std::process::exit;
+use serde::{Deserialize, Serialize};
+use std::sync::Arc;
+use tokio::task;
 use tokio::task::JoinError;
+use tower::ServiceBuilder;
+use tower_http::trace::TraceLayer;
 
 use crate::config::{get_tasks, Config};
 use crate::prometheus::{format_metrics, Format};
@@ -14,58 +23,71 @@ use crate::tasks::{
     SonarrMissingResult, Task, TaskResult, TautulliLibraryResult, TautulliSessionResult,
 };
 
-#[derive(Responder, Debug, PartialEq, Eq)]
-#[response(content_type = "text/plain; charset=utf-8")]
-pub struct MetricsError {
-    response: (Status, String),
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HttpConfig {
+    pub address: String,
+    pub port: u16,
 }
-
-#[derive(Responder, Debug, PartialEq, Eq)]
-#[response()]
-pub struct MetricsResponse {
-    response: (Status, String),
-    content_type: ContentType,
-}
-
-impl MetricsResponse {
-    fn new(status: Status, content_type: Format, response: String) -> Self {
-        let content_type = if status.class().is_success() && content_type == Format::OpenMetrics {
-            get_openmetrics_content_type()
-        } else {
-            get_text_plain_content_type()
-        };
-
+impl Default for HttpConfig {
+    fn default() -> Self {
         Self {
-            content_type,
-            response: (status, response),
+            address: "localhost".to_string(),
+            port: 8000,
         }
     }
 }
-pub async fn configure_rocket(config: Config) -> Rocket<Build> {
+
+#[derive(Debug)]
+pub struct MetricsError {
+    pub message: String,
+}
+
+impl IntoResponse for MetricsError {
+    fn into_response(self) -> axum::response::Response {
+        (StatusCode::INTERNAL_SERVER_ERROR, self.message).into_response()
+    }
+}
+
+#[derive(Clone)]
+pub struct AppState {
+    tasks: Vec<Task>,
+}
+
+pub async fn configure_axum(config: Config) -> Result<(), anyhow::Error> {
     let config_clone = config.clone();
     let tasks = task::spawn_blocking(move || get_tasks(config_clone))
         .await
         .unwrap_or_else(exit_if_handle_fatal)
         .unwrap_or_else(exit_if_handle_fatal);
-    rocket::custom(config.http)
-        .manage(tasks)
-        .mount("/", routes![index, metrics])
+
+    let shared_state = Arc::new(AppState { tasks });
+    let app = Router::new()
+        .route("/", get(index))
+        .route("/metrics", get(metrics))
+        .with_state(shared_state)
+        .layer(ServiceBuilder::new().layer(TraceLayer::new_for_http()));
+
+    let http_config = config.http.unwrap_or_default();
+    let listen = format!("{}:{}", &http_config.address, &http_config.port);
+    let listener = tokio::net::TcpListener::bind(&listen).await.unwrap();
+    tracing::info!("Starting server on {}", listen);
+    axum::serve(listener, app.into_make_service())
+        .await
+        .unwrap();
+    Ok(())
 }
 
-#[get("/")]
-#[allow(clippy::needless_pass_by_value)]
-fn index() -> Result<String, MetricsError> {
-    let response = "Hello Homers".to_string();
-    Ok(response)
+async fn index() -> impl IntoResponse {
+    Html("Hello Homers".to_string())
 }
 
-#[get("/metrics")]
 async fn metrics(
-    unscheduled_tasks: &State<Vec<Task>>,
-    _accept: &Accept,
-) -> Result<MetricsResponse, MetricsError> {
-    Ok(serve_metrics(Format::Prometheus, unscheduled_tasks).await)
+    State(app_state): State<Arc<AppState>>,
+) -> Result<impl IntoResponse, MetricsError> {
+    let format = Format::Prometheus;
+    Ok(serve_metrics(format, app_state.tasks.clone()).await)
 }
+
 async fn process_tasks(tasks: Vec<Task>) -> Result<Vec<TaskResult>, JoinError> {
     let task_futures: Vec<_> = tasks
         .into_iter()
@@ -176,41 +198,41 @@ async fn process_tasks(tasks: Vec<Task>) -> Result<Vec<TaskResult>, JoinError> {
     try_join_all(task_futures).await
 }
 
-async fn serve_metrics(format: Format, unscheduled_tasks: &State<Vec<Task>>) -> MetricsResponse {
-    match process_tasks(unscheduled_tasks.inner().clone()).await {
+async fn serve_metrics(format: Format, tasks: Vec<Task>) -> impl IntoResponse {
+    match process_tasks(tasks).await {
         Ok(task_results) => match format_metrics(task_results) {
-            Ok(metrics) => MetricsResponse::new(Status::Ok, format, metrics),
+            Ok(metrics) => {
+                let content_type = get_text_plain_content_type();
+                (StatusCode::OK, [(CONTENT_TYPE, content_type)], metrics).into_response()
+            }
             Err(e) => {
                 error!("Error formatting metrics: {e}");
-                MetricsResponse::new(
-                    Status::InternalServerError,
-                    format,
-                    "Error formatting metrics. Check the logs.".into(),
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    [(CONTENT_TYPE, get_text_plain_content_type())],
+                    "Error formatting metrics. Check the logs.".to_string(),
                 )
+                    .into_response()
             }
         },
         Err(e) => {
             error!("Error while processing tasks: {e}");
-            MetricsResponse::new(
-                Status::InternalServerError,
-                format,
-                "Error while fetching provider data. Check the logs.".into(),
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                [(CONTENT_TYPE, get_text_plain_content_type())],
+                "Error while fetching provider data. Check the logs.".to_string(),
             )
+                .into_response()
         }
     }
 }
 
-const fn get_content_type_params(version: &str) -> [(&str, &str); 2] {
-    [("charset", "utf-8"), ("version", version)]
+fn get_openmetrics_content_type() -> &'static str {
+    "application/openmetrics-text; version=1.0.0; charset=utf-8"
 }
 
-fn get_openmetrics_content_type() -> ContentType {
-    ContentType::new("application", "openmetrics-text")
-        .with_params(get_content_type_params("1.0.0"))
-}
-
-fn get_text_plain_content_type() -> ContentType {
-    ContentType::new("text", "plain").with_params(get_content_type_params("0.0.4"))
+fn get_text_plain_content_type() -> &'static str {
+    "text/plain; version=0.0.4; charset=utf-8"
 }
 
 pub fn exit_if_handle_fatal<E, R>(error: E) -> R
@@ -218,6 +240,5 @@ where
     E: std::fmt::Display,
 {
     error!("Fatal error: {error}");
-
-    exit(1)
+    std::process::exit(1)
 }

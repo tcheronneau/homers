@@ -1,5 +1,4 @@
 use clap::{arg, command, Parser};
-use rocket::{launch, Build, Rocket};
 use std::path::PathBuf;
 
 mod config;
@@ -34,8 +33,8 @@ struct Args {
     config: PathBuf,
 }
 
-#[launch]
-pub async fn start_server() -> Rocket<Build> {
+#[tokio::main]
+async fn main() {
     let args = Args::parse();
 
     let log_level = match args.verbose.log_level() {
@@ -57,5 +56,8 @@ pub async fn start_server() -> Rocket<Build> {
             std::process::exit(1);
         }
     };
-    http_server::configure_rocket(config).await
+    if let Err(err) = http_server::configure_axum(config).await {
+        eprintln!("Failed to start server: {}", err);
+        std::process::exit(1);
+    }
 }

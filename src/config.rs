@@ -1,14 +1,14 @@
+use figment::providers::Serialized;
 use figment::{
     providers::{Env, Format, Toml},
     Figment,
 };
 use log::{debug, info, Level};
-use rocket::figment::providers::Serialized;
-use rocket::serde::Serialize;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
 
+use crate::http_server::HttpConfig;
 use crate::providers::jellyfin::Jellyfin;
 use crate::providers::overseerr::Overseerr;
 use crate::providers::plex::Plex;
@@ -27,7 +27,7 @@ pub struct Config {
     pub jellyseerr: Option<Overseerr>,
     pub plex: Option<HashMap<String, Plex>>,
     pub jellyfin: Option<HashMap<String, Jellyfin>>,
-    pub http: rocket::Config,
+    pub http: Option<HttpConfig>,
 }
 impl Default for Config {
     fn default() -> Self {
@@ -39,25 +39,24 @@ impl Default for Config {
             jellyseerr: None,
             plex: None,
             jellyfin: None,
-            http: rocket::Config::default(),
+            http: Some(HttpConfig::default()),
         }
     }
 }
 
 pub fn read(config_file: PathBuf, log_level: Level) -> anyhow::Result<Config> {
     info!("Reading config file {config_file:?}");
+    let log_level_str = match log_level {
+        Level::Trace | Level::Debug => "debug",
+        Level::Info => "info",
+        Level::Warn => "warn",
+        Level::Error => "error",
+    };
 
     let config: Config = Figment::new()
         .merge(Serialized::defaults(Config::default()))
         .merge(Toml::file(config_file))
-        .merge((
-            "http.log_level",
-            match log_level {
-                Level::Trace | Level::Debug => rocket::log::LogLevel::Debug,
-                Level::Info | Level::Warn => rocket::log::LogLevel::Normal,
-                Level::Error => rocket::log::LogLevel::Critical,
-            },
-        ))
+        .merge(("http.log_level", log_level_str)) // Replace Rocket log levels
         .merge(Env::prefixed("HOMERS_").split("_"))
         .extract()?;
 
