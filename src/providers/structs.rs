@@ -6,6 +6,7 @@ pub mod jellyfin;
 pub mod overseerr;
 pub mod plex;
 pub mod radarr;
+pub mod readarr;
 pub mod sonarr;
 pub mod tautulli;
 
