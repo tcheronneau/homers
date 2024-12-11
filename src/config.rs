@@ -56,7 +56,7 @@ pub fn read(config_file: PathBuf, log_level: Level) -> anyhow::Result<Config> {
     let config: Config = Figment::new()
         .merge(Serialized::defaults(Config::default()))
         .merge(Toml::file(config_file))
-        .merge(("http.log_level", log_level_str)) // Replace Rocket log levels
+        .merge(("http.log_level", log_level_str))
         .merge(Env::prefixed("HOMERS_").split("_"))
         .extract()?;
 

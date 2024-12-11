@@ -7,7 +7,9 @@ use axum::{
     routing::get,
     Router,
 };
+use axum_extra::extract::TypedHeader;
 use futures::future::try_join_all;
+use headers::HeaderMap;
 use log::{error, info};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -83,8 +85,17 @@ async fn index() -> impl IntoResponse {
 
 async fn metrics(
     State(app_state): State<Arc<AppState>>,
+    headers: HeaderMap,
 ) -> Result<impl IntoResponse, MetricsError> {
-    let format = Format::Prometheus;
+    let mut format = Format::Prometheus;
+    if let Some(accept) = headers.get("accept") {
+        if let Ok(accept_value) = accept.to_str() {
+            if accept_value.contains("openmetrics") {
+                format = Format::OpenMetrics;
+            };
+        };
+    };
+    dbg!(&format);
     Ok(serve_metrics(format, app_state.tasks.clone()).await)
 }
 
@@ -199,10 +210,13 @@ async fn process_tasks(tasks: Vec<Task>) -> Result<Vec<TaskResult>, JoinError> {
 }
 
 async fn serve_metrics(format: Format, tasks: Vec<Task>) -> impl IntoResponse {
+    let content_type = match format {
+        Format::OpenMetrics => get_openmetrics_content_type(),
+        Format::Prometheus => get_text_plain_content_type(),
+    };
     match process_tasks(tasks).await {
         Ok(task_results) => match format_metrics(task_results) {
             Ok(metrics) => {
-                let content_type = get_text_plain_content_type();
                 (StatusCode::OK, [(CONTENT_TYPE, content_type)], metrics).into_response()
             }
             Err(e) => {
@@ -226,7 +240,6 @@ async fn serve_metrics(format: Format, tasks: Vec<Task>) -> impl IntoResponse {
         }
     }
 }
-
 fn get_openmetrics_content_type() -> &'static str {
     "application/openmetrics-text; version=1.0.0; charset=utf-8"
 }

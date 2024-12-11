@@ -8,12 +8,14 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.79"
 async-trait = "0.1.83"
-axum = "0.7.9"
+axum = { version = "0.7.9", features = ["macros"] }
+axum-extra = { version = "0.9.6", features = ["typed-header"] }
 chrono = "0.4.34"
 clap = "4.5.1"
 clap-verbosity-flag = "2.2.0"
 figment = { version = "0.10.14", features = ["toml", "env"] }
 futures = "0.3.31"
+headers = "0.4.0"
 ipgeolocate = "0.3.6"
 json = "0.12.4"
 lazy_static = "1.4.0"
@@ -24,8 +26,9 @@ prometheus-client = "0.22.1"
 reqwest = { version = "0.11.24", features = ["blocking", "json"] }
 serde = { version = "1.0.197", features = ["derive"] }
 serde_json = "1.0.113"
-simple_logger = "4.3.3"
 tokio = { version = "1.35.1", features = ["full"] }
 tower = "0.5.1"
 tower-http = { version = "0.6.2", features = ["trace"] }
 tracing = "0.1.41"
+tracing-log = "0.2.0"
+tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
