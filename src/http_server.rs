@@ -255,3 +255,24 @@ where
     error!("Fatal error: {error}");
     std::process::exit(1)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::tasks::Task;
+    use std::sync::Arc;
+
+    #[tokio::test]
+    async fn test_metrics() {
+        let shared_state = Arc::new(AppState { tasks: vec![] });
+        let result = metrics(State(shared_state), HeaderMap::new()).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_process_tasks() {
+        let tasks = vec![Task::Default];
+        let result = process_tasks(tasks).await;
+        assert!(result.is_ok());
+    }
+}

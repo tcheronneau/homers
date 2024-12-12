@@ -567,3 +567,31 @@ impl FormatAsPrometheus for LibraryResult {
             .set(episode_count as f64);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::providers::sonarr::SonarrEpisode;
+    use crate::tasks::{SonarrEpisodeResult, TaskResult};
+
+    #[test]
+    fn test_format_metrics() {
+        let task_result = vec![TaskResult::SonarrToday(SonarrEpisodeResult {
+            name: "test".to_string(),
+            episodes: vec![SonarrEpisode {
+                sxe: "S01E01".to_string(),
+                season_number: 1,
+                episode_number: 1,
+                air_date: "2021-01-01".to_string(),
+                title: "Test".to_string(),
+                serie: "Test".to_string(),
+                has_file: true,
+            }],
+        })];
+        let result = format_metrics(task_result).unwrap();
+        assert_eq!(
+            result,
+            "# HELP homers_sonarr_today_episode Sonarr today episode status.\n# TYPE homers_sonarr_today_episode gauge\nhomers_sonarr_today_episode{name=\"test\",sxe=\"S01E01\",season_number=\"1\",episode_number=\"1\",title=\"Test\",serie=\"Test\"} 1.0\n# EOF\n"
+        );
+    }
+}

@@ -134,3 +134,43 @@ pub fn get_tasks(config: Config) -> anyhow::Result<Vec<Task>> {
     }
     Ok(tasks)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    #[test]
+    fn test_remove_trailing_slash() {
+        assert_eq!(
+            remove_trailing_slash("http://localhost/"),
+            "http://localhost"
+        );
+        assert_eq!(
+            remove_trailing_slash("http://localhost"),
+            "http://localhost"
+        );
+    }
+
+    #[test]
+    fn test_get_tasks() {
+        let config = Config {
+            tautulli: Some(Tautulli::new("http://localhost", "abc").unwrap()),
+            sonarr: Some(HashMap::new()),
+            radarr: Some(HashMap::new()),
+            overseerr: Some(Overseerr::new("http://localhost", "abc", 20).unwrap()),
+            jellyseerr: Some(Overseerr::new("http://localhost", "abc", 20).unwrap()),
+            plex: Some(HashMap::new()),
+            jellyfin: Some(HashMap::new()),
+            http: None,
+        };
+        let tasks = get_tasks(config).unwrap();
+        assert_eq!(tasks.len(), 4);
+    }
+
+    #[test]
+    fn test_default_config() {
+        let config = Config::default();
+        assert_eq!(config.http.unwrap().address, "localhost");
+    }
+}
