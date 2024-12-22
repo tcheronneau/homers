@@ -65,6 +65,7 @@
           pkg-config
           openssl.dev
           rust-analyzer
+          clippy
           rustc
           cargo
           rustfmt

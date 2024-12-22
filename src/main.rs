@@ -1,6 +1,7 @@
 use clap::{arg, command, Parser};
 use log::Level;
 use std::path::PathBuf;
+use tokio::signal::unix::{signal, SignalKind};
 
 mod config;
 mod http_server;
@@ -48,9 +49,28 @@ async fn main() {
             std::process::exit(1);
         }
     };
+    tokio::select! {
+        _ = handle_shutdown_signal() => {}
+        _ = run_server(config) => {}
+    }
+}
+async fn run_server(config: config::Config) {
     if let Err(err) = http_server::configure_axum(config).await {
         eprintln!("Failed to start server: {}", err);
         std::process::exit(1);
+    }
+}
+async fn handle_shutdown_signal() {
+    let mut sigterm = signal(SignalKind::terminate()).expect("Failed to create SIGTERM listener");
+    let mut sigint = signal(SignalKind::interrupt()).expect("Failed to create SIGINT listener");
+
+    tokio::select! {
+        _ = sigterm.recv() => {
+            log::warn!("Exiting...");
+        }
+        _ = sigint.recv() => {
+            log::warn!("Interrupting...");
+        }
     }
 }
 fn setup_logging(log_level: Level) {
