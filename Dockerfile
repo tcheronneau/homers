@@ -20,7 +20,7 @@ COPY --from=builder /usr/local/cargo/bin/homers /usr/local/bin
 COPY config.toml /app/config.toml
 COPY entrypoint.sh /app/entrypoint.sh
 RUN apt-get update && \
-    apt-get install -y sqlite3 ca-certificates && \
+    apt-get install -y sqlite3 ca-certificates tini && \
     cp "/usr/share/zoneinfo/${TZ}" /etc/localtime && \ 
     echo "${TZ}" > /etc/timezone
 USER root

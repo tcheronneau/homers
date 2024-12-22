@@ -14,4 +14,4 @@ echo "${TZ}" > /etc/timezone
 groupadd -g 1005 homers
 useradd -u 1005 -g 1005 -s /bin/bash -m homers
 
-runuser --user homers -- "$@" 
+exec tini -- runuser --user homers -- "$@"
