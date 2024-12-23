@@ -161,7 +161,7 @@ impl FormatAsPrometheus for SonarrEpisodeResult {
         let sonarr_episode = Family::<SonarrLabels, Gauge<f64, AtomicU64>>::default();
         registry.register(
             "sonarr_today_episode",
-            format!("Sonarr today episode status"),
+            "Sonarr today episode status".to_string(),
             sonarr_episode.clone(),
         );
         self.episodes.iter().for_each(|ep: &SonarrEpisode| {
@@ -185,7 +185,7 @@ impl FormatAsPrometheus for SonarrMissingResult {
         let sonarr_episode = Family::<SonarrLabels, Gauge<f64, AtomicU64>>::default();
         registry.register(
             "sonarr_missing_episode",
-            format!("Sonarr missing episode status"),
+            "Sonarr missing episode status".to_string(),
             sonarr_episode.clone(),
         );
         self.episodes.iter().for_each(|ep: &SonarrEpisode| {
@@ -212,12 +212,12 @@ impl FormatAsPrometheus for TautulliSessionResult {
             Family::<TautulliSessionPercentageLabels, Gauge<f64, AtomicU64>>::default();
         registry.register(
             "tautulli_session",
-            format!("Tautulli session status"),
+            "Tautulli session status".to_string(),
             tautulli_session.clone(),
         );
         registry.register(
             "tautulli_session_percentage",
-            format!("Tautulli session progress"),
+            "Tautulli session progress".to_string(),
             tautulli_session_percentage.clone(),
         );
         self.sessions.iter().for_each(|session: &SessionSummary| {
@@ -261,7 +261,7 @@ impl FormatAsPrometheus for TautulliLibraryResult {
         let tautulli_library = Family::<TautulliLibraryLabels, Gauge<f64, AtomicU64>>::default();
         registry.register(
             "tautulli_library",
-            format!("Tautulli library status"),
+            "Tautulli library status".to_string(),
             tautulli_library.clone(),
         );
         self.libraries.iter().for_each(|library: &TautulliLibrary| {
@@ -285,7 +285,7 @@ impl FormatAsPrometheus for RadarrMovieResult {
         let radarr_movie = Family::<RadarrLabels, Gauge<f64, AtomicU64>>::default();
         registry.register(
             "radarr_movie",
-            format!("Radarr movie status"),
+            "Radarr movie status".to_string(),
             radarr_movie.clone(),
         );
         self.movies.iter().for_each(|movie: &RadarrMovie| {
@@ -342,17 +342,17 @@ impl FormatAsPrometheus for SessionResult {
             "plex" => {
                 registry.register(
                     "plex_sessions",
-                    format!("Plex sessions status"),
+                    "Plex sessions status".to_string(),
                     sessions_labels.clone(),
                 );
                 registry.register(
                     "plex_sessions_percentage",
-                    format!("Plex sessions percentage status"),
+                    "Plex sessions percentage status".to_string(),
                     sessions_percentage.clone(),
                 );
                 registry.register(
                     "plex_session_bandwidth",
-                    format!("Plex session bandwidth"),
+                    "Plex session bandwidth".to_string(),
                     session_bandwidth.clone(),
                 );
                 session_bandwidth
@@ -371,29 +371,29 @@ impl FormatAsPrometheus for SessionResult {
             "jellyfin" => {
                 registry.register(
                     "jellyfin_sessions",
-                    format!("Jellyfin sessions status"),
+                    "Jellyfin sessions status".to_string(),
                     sessions_labels.clone(),
                 );
                 registry.register(
                     "jellyfin_sessions_percentage",
-                    format!("Jellyfin sessions percentage status"),
+                    "Jellyfin sessions percentage status".to_string(),
                     sessions_percentage.clone(),
                 );
             }
             _ => {
                 registry.register(
                     "sessions",
-                    format!("Sessions status"),
+                    "Sessions status".to_string(),
                     sessions_labels.clone(),
                 );
                 registry.register(
                     "sessions_percentage",
-                    format!("Sessions percentage status"),
+                    "Sessions percentage status".to_string(),
                     sessions_percentage.clone(),
                 );
                 registry.register(
                     "session_bandwidth",
-                    format!("Session bandwidth"),
+                    "Session bandwidth".to_string(),
                     session_bandwidth.clone(),
                 );
             }
@@ -428,7 +428,7 @@ impl FormatAsPrometheus for SessionResult {
 
             sessions_percentage
                 .get_or_create(&session_labels)
-                .set(session.progress as f64);
+                .set(session.progress);
             sessions_labels.get_or_create(&session_labels).set(1.0);
         });
         inactive_users.iter().for_each(|user| {

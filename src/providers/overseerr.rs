@@ -225,7 +225,7 @@ impl Overseerr {
         match &request.requested_by.username {
             Some(username) => username,
             None => match &request.requested_by.plex_username {
-                Some(username) => &username,
+                Some(username) => username,
                 None => "Unknown",
             },
         }

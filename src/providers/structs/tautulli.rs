@@ -19,17 +19,17 @@ pub enum TautulliData {
     Activity(Activity),
     Libraries(Vec<Library>),
 }
-impl Into<Activity> for TautulliData {
-    fn into(self) -> Activity {
-        match self {
+impl From<TautulliData> for Activity {
+    fn from(val: TautulliData) -> Self {
+        match val {
             TautulliData::Activity(activity) => activity,
             _ => panic!("TautulliData is not Activity"),
         }
     }
 }
-impl Into<Vec<Library>> for TautulliData {
-    fn into(self) -> Vec<Library> {
-        match self {
+impl From<TautulliData> for Vec<Library> {
+    fn from(val: TautulliData) -> Self {
+        match val {
             TautulliData::Libraries(libraries) => libraries,
             _ => panic!("TautulliData is not Libraries"),
         }

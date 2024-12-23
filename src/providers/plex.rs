@@ -36,7 +36,7 @@ impl Plex {
     }
     pub fn new(name: &str, address: &str, token: &str) -> anyhow::Result<Plex> {
         let mut headers = header::HeaderMap::new();
-        let mut header_token = header::HeaderValue::from_str(&token)?;
+        let mut header_token = header::HeaderValue::from_str(token)?;
         let header_container_size = header::HeaderValue::from_static("1000");
         header_token.set_sensitive(true);
         headers.insert("X-Plex-Token", header_token);
@@ -294,7 +294,7 @@ impl Plex {
         statistics_container
             .account
             .into_iter()
-            .map(|item| <StatUser as Into<User>>::into(item))
+            .map(<StatUser as Into<User>>::into)
             .collect()
     }
 }

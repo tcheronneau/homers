@@ -7,7 +7,6 @@ use axum::{
     routing::get,
     Router,
 };
-use axum_extra::extract::TypedHeader;
 use futures::future::try_join_all;
 use headers::HeaderMap;
 use log::{error, info};

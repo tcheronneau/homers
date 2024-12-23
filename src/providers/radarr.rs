@@ -38,7 +38,7 @@ pub struct Radarr {
 impl Radarr {
     pub fn new(name: &str, address: &str, api_key: &str) -> Result<Radarr, ProviderError> {
         let mut headers = header::HeaderMap::new();
-        let mut header_api_key = match header::HeaderValue::from_str(&api_key) {
+        let mut header_api_key = match header::HeaderValue::from_str(api_key) {
             Ok(header_api_key) => header_api_key,
             Err(e) => {
                 return Err(ProviderError::new(
@@ -96,7 +96,8 @@ impl Radarr {
                 Vec::new()
             }
         };
-        let radarr_movies = movies
+        
+        movies
             .into_iter()
             .map(|movie| RadarrMovie {
                 title: movie.title.clone(),
@@ -105,14 +106,9 @@ impl Radarr {
                 is_available: movie.is_available,
                 missing_available: self.set_missing_movies(&movie),
             })
-            .collect::<Vec<RadarrMovie>>();
-        radarr_movies
+            .collect::<Vec<RadarrMovie>>()
     }
     fn set_missing_movies(&self, movie: &Movie) -> bool {
-        if !movie.has_file && movie.is_available {
-            true
-        } else {
-            false
-        }
+        !movie.has_file && movie.is_available
     }
 }

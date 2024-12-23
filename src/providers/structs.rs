@@ -82,20 +82,17 @@ impl AsyncFrom<jellyfin::SessionResponse> for Session {
         let mut title = "".to_string();
         let mut media_type = "Unknown".to_string();
         let mut quality = "".to_string();
-        match &session.now_playing_item {
-            Some(item) => {
-                title = item.name.clone();
-                media_type = item.type_field.clone();
-                let media_stream = &item
-                    .media_streams
-                    .iter()
-                    .find(|stream| stream.type_field == "Video");
-                quality = match media_stream {
-                    Some(stream) => stream.display_title.clone(),
-                    None => "Unknown".to_string(),
-                }
+        if let Some(item) = &session.now_playing_item {
+            title = item.name.clone();
+            media_type = item.type_field.clone();
+            let media_stream = &item
+                .media_streams
+                .iter()
+                .find(|stream| stream.type_field == "Video");
+            quality = match media_stream {
+                Some(stream) => stream.display_title.clone(),
+                None => "Unknown".to_string(),
             }
-            None => (),
         };
         let progress = match &session.play_state.position_ticks {
             Some(position) => match &session.now_playing_item {
@@ -167,16 +164,10 @@ impl AsyncFrom<plex::SessionMetadata> for Session {
         let state = session.player.state_field.clone();
         let progress = session.progress();
         let part = &session.media[0].part[0];
-        let video_stream: &plex::Stream = &part.stream.iter().find(|s| s.stream_type == 1).unwrap();
+        let video_stream: &plex::Stream = part.stream.iter().find(|s| s.stream_type == 1).unwrap();
         let quality = video_stream.display_title.to_string();
-        let season_number = match session.parent_index {
-            Some(index) => Some(index.to_string()),
-            None => None,
-        };
-        let episode_number = match session.index {
-            Some(index) => Some(index.to_string()),
-            None => None,
-        };
+        let season_number = session.parent_index.map(|index| index.to_string());
+        let episode_number = session.index.map(|index| index.to_string());
         let location = get_ip_info(&session.player.remote_public_address).await;
         let decision = part.decision.clone();
         let video_stream_decision = match &video_stream.decision {

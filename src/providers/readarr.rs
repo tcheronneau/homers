@@ -1,9 +1,6 @@
-use chrono::{format::strftime::StrftimeItems, Duration, Local};
-use log::{debug, error};
 use reqwest::header;
 use serde::{Deserialize, Serialize};
 
-use crate::providers::structs::readarr;
 use crate::providers::{Provider, ProviderError, ProviderErrorKind};
 
 #[derive(Debug, Deserialize, Clone, Serialize)]
