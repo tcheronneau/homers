@@ -1,0 +1,14 @@
+#!/command/with-contenv bash
+
+if [[ -z "${PUID}" ]]; then
+  echo "PUID is not set. Using default PUID 1005."
+  export PUID="1005"
+fi
+if [[ -z "${TZ}" ]]; then
+  echo "TZ is not set. Using default timezone 'UTC'."
+  TZ="UTC"
+fi
+cp "/usr/share/zoneinfo/${TZ}" /etc/localtime
+echo "${TZ}" > /etc/timezone
+groupadd -g ${PUID} homers
+useradd -u ${PUID} -g ${PUID} -s /bin/bash -m homers
