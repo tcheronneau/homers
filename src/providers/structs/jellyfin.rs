@@ -42,7 +42,6 @@ pub struct NowPlayingItem {
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct MediaStream {
-    pub codec: String,
     #[serde(rename = "Type")]
     pub type_field: String,
     pub title: Option<String>,
