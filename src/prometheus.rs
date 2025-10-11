@@ -279,6 +279,13 @@ impl FormatAsPrometheus for TautulliLibraryResult {
     }
 }
 
+fn escape_label_value(value: &str) -> String {
+    value
+        .replace('\\', r"\\") // escape backslash
+        .replace('"', r#"\""#) // escape double quote
+        .replace('\n', r"\n") // escape newline
+}
+
 impl FormatAsPrometheus for RadarrMovieResult {
     fn format_as_prometheus(&self, registry: &mut Registry) {
         debug!("Formatting {self:?} as Prometheus");
@@ -291,7 +298,7 @@ impl FormatAsPrometheus for RadarrMovieResult {
         self.movies.iter().for_each(|movie: &RadarrMovie| {
             let labels = RadarrLabels {
                 name: self.name.clone(),
-                title: movie.title.clone(),
+                title: escape_label_value(&movie.title),
                 is_available: movie.is_available as i8,
                 monitored: movie.monitored as i8,
                 missing_available: movie.missing_available as i8,
