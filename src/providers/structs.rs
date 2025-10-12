@@ -81,16 +81,32 @@ impl AsyncFrom<jellyfin::SessionResponse> for Session {
         let mut title = "".to_string();
         let mut media_type = "Unknown".to_string();
         let mut quality = "".to_string();
+        let mut episode_number = None;
+        let mut season_number = None;
         match &session.now_playing_item {
             Some(item) => {
                 title = item.name.clone();
                 media_type = item.type_field.clone();
+                episode_number = match item.index_number {
+                    Some(index) => Some(index.to_string()),
+                    None => None,
+                };
+                season_number = match item.parent_index_number {
+                    Some(index) => Some(index.to_string()),
+                    None => None,
+                };
                 let media_stream = &item
                     .media_streams
                     .iter()
                     .find(|stream| stream.type_field == "Video");
                 quality = match media_stream {
-                    Some(stream) => stream.display_title.clone(),
+                    Some(stream) => match &stream.display_title {
+                        Some(title) => title.to_string(),
+                        None => match &stream.title {
+                            Some(title) => title.to_string(),
+                            None => "Unknown".to_string(),
+                        },
+                    },
                     None => "Unknown".to_string(),
                 }
             }
@@ -143,8 +159,8 @@ impl AsyncFrom<jellyfin::SessionResponse> for Session {
             state: state.to_string(),
             progress,
             quality,
-            season_number: None,
-            episode_number: None,
+            season_number,
+            episode_number,
             address: session.remote_end_point,
             location,
             local: false,
