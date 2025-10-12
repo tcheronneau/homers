@@ -144,6 +144,12 @@ struct OverseerrLabels {
 struct OverseerrRequestsLabels {
     kind: String,
 }
+fn escape_title(title: &str) -> String {
+    title
+        .replace('\\', r"\\") // escape backslash
+        .replace('"', r#"\""#) // escape double quote
+        .replace('\n', r"\n") // escape newline
+}
 
 pub fn format_metrics(task_result: Vec<TaskResult>) -> anyhow::Result<String> {
     let mut buffer = String::new();
@@ -170,7 +176,7 @@ impl FormatAsPrometheus for SonarrEpisodeResult {
                 sxe: ep.sxe.clone(),
                 season_number: ep.season_number,
                 episode_number: ep.episode_number,
-                title: ep.title.clone(),
+                title: escape_title(&ep.title),
                 serie: ep.serie.clone(),
             };
             sonarr_episode
@@ -194,7 +200,7 @@ impl FormatAsPrometheus for SonarrMissingResult {
                 sxe: ep.sxe.clone(),
                 season_number: ep.season_number,
                 episode_number: ep.episode_number,
-                title: ep.title.clone(),
+                title: escape_title(&ep.title),
                 serie: ep.serie.clone(),
             };
             sonarr_episode
@@ -223,7 +229,7 @@ impl FormatAsPrometheus for TautulliSessionResult {
         self.sessions.iter().for_each(|session: &SessionSummary| {
             let labels = TautulliSessionPercentageLabels {
                 user: session.user.clone(),
-                title: session.title.clone(),
+                title: escape_title(&session.title),
                 state: session.state.clone(),
                 media_type: session.media_type.clone(),
                 season_number: session.season_number.clone(),
@@ -238,7 +244,7 @@ impl FormatAsPrometheus for TautulliSessionResult {
                 .set(session.progress.parse::<f64>().unwrap_or(0.0));
             let labels = TautulliSessionLabels {
                 user: session.user.clone(),
-                title: session.title.clone(),
+                title: escape_title(&session.title),
                 state: session.state.clone(),
                 media_type: session.media_type.clone(),
                 season_number: session.season_number.clone(),
@@ -279,13 +285,6 @@ impl FormatAsPrometheus for TautulliLibraryResult {
     }
 }
 
-fn escape_label_value(value: &str) -> String {
-    value
-        .replace('\\', r"\\") // escape backslash
-        .replace('"', r#"\""#) // escape double quote
-        .replace('\n', r"\n") // escape newline
-}
-
 impl FormatAsPrometheus for RadarrMovieResult {
     fn format_as_prometheus(&self, registry: &mut Registry) {
         debug!("Formatting {self:?} as Prometheus");
@@ -298,7 +297,7 @@ impl FormatAsPrometheus for RadarrMovieResult {
         self.movies.iter().for_each(|movie: &RadarrMovie| {
             let labels = RadarrLabels {
                 name: self.name.clone(),
-                title: escape_label_value(&movie.title),
+                title: escape_title(&movie.title),
                 is_available: movie.is_available as i8,
                 monitored: movie.monitored as i8,
                 missing_available: movie.missing_available as i8,
@@ -326,7 +325,7 @@ impl FormatAsPrometheus for OverseerrRequestResult {
                 requested_by: request.requested_by.to_string(),
                 request_status: request.status.to_string(),
                 media_status: request.media_status.to_string(),
-                media_title: request.media_title.clone(),
+                media_title: escape_title(&request.media_title),
                 requested_at: request.requested_at.clone(),
             };
             overseerr_request
@@ -414,7 +413,7 @@ impl FormatAsPrometheus for SessionResult {
             inactive_users.retain(|user| user.name != session.user);
             let session_labels = SessionLabels {
                 name: self.name.clone(),
-                title: session.title.clone(),
+                title: escape_title(&session.title),
                 user: session.user.clone(),
                 decision: session.stream_decision.to_string(),
                 state: session.state.to_string(),

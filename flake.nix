@@ -4,10 +4,10 @@
     flake-utils.url = "github:numtide/flake-utils";
   };
   outputs = { self, nixpkgs, flake-utils }:
-  let 
+  let
     name = "homers";
-    version = "0.5.2";
-  in 
+    version = "0.5.3";
+  in
   flake-utils.lib.eachDefaultSystem (system:
     with nixpkgs.legacyPackages.${system}; {
       packages.homers = rustPlatform.buildRustPackage {
@@ -23,11 +23,11 @@
         };
         #cargoSha256 =
         #  "sha256-uzrntCNLopr3EhvHy63HsKWJlzplUOYC01KEj7BPt0U=";
-        buildInputs = [ 
+        buildInputs = [
           pkg-config
           openssl.dev
         ];
-        nativeBuildInputs = [ 
+        nativeBuildInputs = [
           rustc
           cargo
           pkg-config
@@ -40,10 +40,10 @@
         created = "now";
         copyToRoot = pkgs.buildEnv {
           name = "homers";
-          paths = [ 
+          paths = [
             (pkgs.writeTextDir "/etc/homers/config.toml" (builtins.readFile ./config.toml))
             pkgs.cacert
-          ]; 
+          ];
           pathsToLink = [ "/etc" ];
         };
         config = {
@@ -61,7 +61,7 @@
       devShell = mkShell {
         inputsFrom = builtins.attrValues self.packages.${system};
 
-        buildInputs = [ 
+        buildInputs = [
           pkg-config
           openssl.dev
           rust-analyzer
