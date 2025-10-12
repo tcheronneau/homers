@@ -68,7 +68,8 @@
           rustc
           cargo
           rustfmt
-        ]++ lib.optionals stdenv.isDarwin [ darwin.apple_sdk.frameworks.SystemConfiguration ];
+        ];
+        #++ lib.optionals stdenv.isDarwin [ darwin.apple_sdk.frameworks.SystemConfiguration ];
       };
     });
 }
