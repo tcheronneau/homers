@@ -1,5 +1,5 @@
 # Build Stage
-FROM rust:1.77.2 AS builder
+FROM rust:1.89.0 AS builder
 WORKDIR /usr/src/
 
 RUN USER=root cargo new homers
