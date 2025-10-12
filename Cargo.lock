@@ -619,7 +619,7 @@ checksum = "d231dfb89cfffdbc30e7fc41579ed6066ad03abda9e567ccafae602b97ec5024"
 
 [[package]]
 name = "homers"
-version = "0.5.3"
+version = "0.5.2"
 dependencies = [
  "anyhow",
  "async-trait",
