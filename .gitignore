@@ -1,6 +1,5 @@
 /target
-*local*
-*home*
+config.*.toml
 result
 .envrc
 .direnv/*

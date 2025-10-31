@@ -162,7 +162,7 @@ pub struct Series {
     pub last_aired: String,
     pub series_type: String,
     pub clean_title: String,
-    pub imdb_id: String,
+    //pub imdb_id: String,
     pub title_slug: String,
     pub certification: Option<String>,
     pub genres: Vec<String>,

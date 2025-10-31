@@ -35,15 +35,17 @@ pub struct NowPlayingItem {
     #[serde(rename = "Type")]
     pub type_field: String,
     pub media_streams: Vec<MediaStream>,
+    pub index_number: Option<i64>,
+    pub parent_index_number: Option<i64>,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct MediaStream {
-    pub codec: String,
     #[serde(rename = "Type")]
     pub type_field: String,
-    pub display_title: String,
+    pub title: Option<String>,
+    pub display_title: Option<String>,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
