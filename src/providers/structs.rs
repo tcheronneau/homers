@@ -111,6 +111,7 @@ impl AsyncFrom<jellyfin::SessionResponse> for Session {
                     None => "Unknown".to_string(),
                 }
             }
+            None => (),
         };
         let progress = match &session.play_state.position_ticks {
             Some(position) => match &session.now_playing_item {
