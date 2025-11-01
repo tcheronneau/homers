@@ -3,13 +3,13 @@
 version: '3'
 
 env:
-  DOCKER_TAG: "" 
+  DOCKER_TAG: ""
 
 vars:
   DOCKER_TAG: ${DOCKER_TAG:-latest}
 
 tasks:
-  build: 
+  build:
     cmds:
       - cmd: docker buildx build --push --platform linux/amd64 -t mcth/homers:{{.DOCKER_TAG}} .
   push:
@@ -25,7 +25,7 @@ tasks:
           DOCKER_TAG: alpha
   build_multi_arch:
     cmds:
-      - cmd: docker buildx build --platform linux/amd64,linux/arm64 -t mcth/homers:{{.DOCKER_TAG}} .
+      - cmd: docker buildx build --platform linux/amd64,linux/arm64,linux/aarch64 -t mcth/homers:{{.DOCKER_TAG}} .
   default:
     cmds:
       - task: build
