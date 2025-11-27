@@ -72,5 +72,54 @@
         ];
         #++ lib.optionals stdenv.isDarwin [ darwin.apple_sdk.frameworks.SystemConfiguration ];
       };
-    });
+      nixosModules.homers = { config, lib, pkgs, ...}:
+        with lib;
+        let
+          cfg = config.services.homers;
+          format = pkgs.formats.toml {};
+          configFile = format.generate "config.toml" cfg.settings;
+        in {
+          options.services.homers = {
+            enable = mkOption {
+              type = types.bool;
+              default = false;
+              description = "Enable Homers service";
+            };
+            package = mkOption {
+              type = types.package;
+              default = self.packages.${system}.homers;
+              description = "Homers package to use";
+            };
+            settings = mkOption {
+              type = types.submodule {
+                freeformType = format.type;
+              };
+              default = { };
+              description = "Homers configuration settings";
+            };
+          };
+          config = mkIf cfg.enable {
+            systemd.services.homers = {
+              description = "Homers Service";
+              after = [ "network.target" ];
+              wantedBy = [ "multi-user.target" ];
+              serviceConfig = {
+                ExecStart = "${cfg.package}/bin/${name} --config ${configFile}";
+                Restart = "on-failure";
+                ExecReload = "${pkgs.coreutils}/bin/kill -SIGHUP $MAINPID";
+                KillSignal = "SIGINT";
+                TimeoutStopSec = "30s";
+                AmbientCapabilities = "CAP_NET_BIND_SERVICE";
+              };
+            };
+            users.users.homers = {
+              isSystemUser = true;
+              description = "Homers Service User";
+              group = "homers";
+            };
+            users.groups.homers = {};
+            meta.maintainers = with maintainers; [ tcheronneau ];
+          };
+        };
+        });
 }
