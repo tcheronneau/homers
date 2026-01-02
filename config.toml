@@ -20,13 +20,13 @@ address="0.0.0.0"
 #address="https://jellyfin.mcth.fr"
 #apikey="4e9856d0b8a04444bb6b1ff1ad8bf838"
 
-[radarr.main]
-address="http://localhost:7878/"
-apikey="9122f767ae754e0f90804f2432e7c56f"
+#[radarr.main]
+#address="http://localhost:7878/"
+#apikey="9122f767ae754e0f90804f2432e7c56f"
 #
-#[plex.kevin]
-#address="http://localhost:32400"
-#token="UsZFM65uenR17FzAC9j6"
+[plex.kevin]
+address="http://localhost:32400"
+token="UsZFM65uenR17FzAC9j6"
 #
 #[overseerr]
 #address="http://localhost:5055"
@@ -36,6 +36,6 @@ apikey="9122f767ae754e0f90804f2432e7c56f"
 #address="http://localhost:5055"
 #apikey="MTczMzUwMDE0NDM0NDZhZjBlYzdkLTA5MmMtNGUyNC05ZmQxLTU5NDA3Y2ZmMWJhMw=="
 #requests=1000
-[readarr.main]
-address="http://localhost:8787"
-apikey="46743a957b3e40f5be7ead69764309b5"
+#[readarr.main]
+#address="http://localhost:8787"
+#apikey="46743a957b3e40f5be7ead69764309b5"
