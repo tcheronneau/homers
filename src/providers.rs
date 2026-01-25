@@ -2,7 +2,7 @@ pub mod jellyfin;
 pub mod overseerr;
 pub mod plex;
 pub mod radarr;
-pub mod readarr;
+//pub mod readarr;
 pub mod sonarr;
 pub mod structs;
 pub mod tautulli;
@@ -22,7 +22,7 @@ pub enum Provider {
     Overseerr,
     Tautulli,
     //Unifi,
-    Readarr,
+    //Readarr,
     Reqwest,
     Plex,
     Jellyfin,
@@ -31,7 +31,7 @@ impl std::fmt::Display for Provider {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Provider::Radarr => write!(f, "Radarr"),
-            Provider::Readarr => write!(f, "Readarr"),
+            //Provider::Readarr => write!(f, "Readarr"),
             Provider::Sonarr => write!(f, "Sonarr"),
             Provider::Overseerr => write!(f, "Overseerr"),
             Provider::Tautulli => write!(f, "Tautulli"),

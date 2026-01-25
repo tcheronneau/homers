@@ -79,10 +79,6 @@ struct SonarrLabels {
     pub title: String,
     pub serie: String,
 }
-#[derive(Clone, Hash, Eq, PartialEq, EncodeLabelSet, Debug)]
-struct PlexCount {
-    pub name: String,
-}
 
 #[derive(Clone, Hash, Eq, PartialEq, EncodeLabelSet, Debug)]
 struct TautulliSessionPercentageLabels {
@@ -140,10 +136,6 @@ struct OverseerrLabels {
     pub requested_at: String,
 }
 
-#[derive(Clone, Hash, Eq, PartialEq, EncodeLabelSet, Debug)]
-struct OverseerrRequestsLabels {
-    kind: String,
-}
 fn escape_title(title: &str) -> String {
     title
         .replace('\\', r"\\") // escape backslash
