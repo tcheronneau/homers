@@ -94,7 +94,6 @@ async fn metrics(
             };
         };
     };
-    dbg!(&format);
     Ok(serve_metrics(format, app_state.tasks.clone()).await)
 }
 
