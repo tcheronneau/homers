@@ -3,13 +3,15 @@ use serde::Deserialize;
 
 use crate::prometheus::FormatAsPrometheus;
 use crate::providers::jellyfin::Jellyfin;
+use crate::providers::lidarr::{Lidarr, LidarrArtist};
 use crate::providers::overseerr::{Overseerr, OverseerrRequest};
 use crate::providers::plex::Plex;
 use crate::providers::radarr::{Radarr, RadarrMovie};
+use crate::providers::readarr::{Readarr, ReadarrAuthor};
 use crate::providers::sonarr::{Sonarr, SonarrEpisode};
 use crate::providers::structs::tautulli::Library;
 use crate::providers::structs::{LibraryCount, Session, User};
-use crate::providers::tautulli::SessionSummary;
+use crate::providers::tautulli::{HistoryEntry, SessionSummary};
 use crate::providers::tautulli::Tautulli;
 
 #[derive(Debug, Deserialize, Clone)]
@@ -17,10 +19,13 @@ pub enum Task {
     SonarrToday(Sonarr),
     SonarrMissing(Sonarr),
     Radarr(Radarr),
+    Readarr(Readarr),
+    Lidarr(Lidarr),
     Overseerr(Overseerr),
     Jellyseerr(Overseerr),
     TautulliSession(Tautulli),
     TautulliLibrary(Tautulli),
+    TautulliHistory(Tautulli),
     PlexSession(Plex),
     PlexLibrary(Plex),
     JellyfinSession(Jellyfin),
@@ -32,7 +37,10 @@ pub enum TaskResult {
     SonarrMissing(SonarrMissingResult),
     TautulliSession(TautulliSessionResult),
     TautulliLibrary(TautulliLibraryResult),
+    TautulliHistory(TautulliHistoryResult),
     Radarr(RadarrMovieResult),
+    Readarr(ReadarrAuthorResult),
+    Lidarr(LidarrArtistResult),
     Overseerr(OverseerrRequestResult),
     Jellyseerr(OverseerrRequestResult),
     PlexSession(SessionResult),
@@ -56,7 +64,16 @@ impl FormatAsPrometheus for TaskResult {
             TaskResult::TautulliLibrary(result) => {
                 result.format_as_prometheus(registry);
             }
+            TaskResult::TautulliHistory(result) => {
+                result.format_as_prometheus(registry);
+            }
             TaskResult::Radarr(result) => {
+                result.format_as_prometheus(registry);
+            }
+            TaskResult::Readarr(result) => {
+                result.format_as_prometheus(registry);
+            }
+            TaskResult::Lidarr(result) => {
                 result.format_as_prometheus(registry);
             }
             TaskResult::Overseerr(result) => {
@@ -103,9 +120,27 @@ pub struct TautulliLibraryResult {
 }
 
 #[derive(Debug, Clone)]
+pub struct TautulliHistoryResult {
+    pub total_plays: i64,
+    pub entries: Vec<HistoryEntry>,
+}
+
+#[derive(Debug, Clone)]
 pub struct RadarrMovieResult {
     pub name: String,
     pub movies: Vec<RadarrMovie>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ReadarrAuthorResult {
+    pub name: String,
+    pub authors: Vec<ReadarrAuthor>,
+}
+
+#[derive(Debug, Clone)]
+pub struct LidarrArtistResult {
+    pub name: String,
+    pub artists: Vec<LidarrArtist>,
 }
 
 #[derive(Debug, Clone)]

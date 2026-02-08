@@ -2,11 +2,11 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Author {
+pub struct Artist {
     #[serde(default)]
     pub id: i64,
     #[serde(default)]
-    pub author_name: String,
+    pub artist_name: String,
     #[serde(default)]
     pub monitored: bool,
     #[serde(default)]
@@ -17,13 +17,13 @@ pub struct Author {
 #[serde(rename_all = "camelCase")]
 pub struct Statistics {
     #[serde(default)]
-    pub book_count: i64,
+    pub album_count: i64,
     #[serde(default)]
-    pub book_file_count: i64,
+    pub track_count: i64,
     #[serde(default)]
-    pub total_book_count: i64,
+    pub track_file_count: i64,
     #[serde(default)]
     pub size_on_disk: i64,
     #[serde(default)]
-    pub percent_of_books: f64,
+    pub percent_of_tracks: f64,
 }

@@ -96,6 +96,15 @@ impl From<i64> for MediaStatus {
     }
 }
 impl MediaStatus {
+    pub fn as_f64(&self) -> f64 {
+        match self {
+            MediaStatus::Unknown => 1.0,
+            MediaStatus::Pending => 2.0,
+            MediaStatus::Processing => 3.0,
+            MediaStatus::PartiallyAvailable => 4.0,
+            MediaStatus::Available => 5.0,
+        }
+    }
     pub fn to_string(&self) -> String {
         match self {
             MediaStatus::Unknown => "unknown".to_string(),
@@ -167,9 +176,20 @@ impl Overseerr {
                 ));
             }
         };
-        let requests = match response.json::<overseerr::Request>().await {
+        let body = match response.text().await {
+            Ok(body) => body,
+            Err(e) => {
+                return Err(ProviderError::new(
+                    Provider::Overseerr,
+                    ProviderErrorKind::GetError,
+                    &format!("Failed to read response body: {:?}", e),
+                ));
+            }
+        };
+        let requests: overseerr::Request = match serde_json::from_str(&body) {
             Ok(requests) => requests,
             Err(e) => {
+                error!("Overseerr response body: {}", body);
                 return Err(ProviderError::new(
                     Provider::Overseerr,
                     ProviderErrorKind::ParseError,

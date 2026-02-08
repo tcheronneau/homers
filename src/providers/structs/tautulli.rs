@@ -349,3 +349,62 @@ impl std::fmt::Display for Library {
         }
     }
 }
+
+// History response (separate from TautulliData since the structure differs)
+#[derive(Debug, Serialize, Deserialize)]
+pub struct HistoryResponse {
+    pub response: HistoryResponseInner,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct HistoryResponseInner {
+    pub result: String,
+    pub data: HistoryData,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct HistoryData {
+    #[serde(default)]
+    #[serde(rename = "recordsTotal")]
+    pub records_total: i64,
+    #[serde(default)]
+    pub data: Vec<HistoryEntry>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HistoryEntry {
+    #[serde(default)]
+    pub date: i64,
+    #[serde(default)]
+    pub started: i64,
+    #[serde(default)]
+    pub stopped: i64,
+    #[serde(default)]
+    pub duration: i64,
+    #[serde(default)]
+    pub user: String,
+    #[serde(default)]
+    pub friendly_name: String,
+    #[serde(default)]
+    pub full_title: String,
+    #[serde(default)]
+    pub title: String,
+    #[serde(default)]
+    pub parent_title: String,
+    #[serde(default)]
+    pub grandparent_title: String,
+    #[serde(default)]
+    pub media_type: String,
+    #[serde(default)]
+    pub platform: String,
+    #[serde(default)]
+    pub player: String,
+    #[serde(default)]
+    pub year: String,
+    #[serde(default)]
+    pub percent_complete: i64,
+    #[serde(default)]
+    pub watched_status: f64,
+    #[serde(default)]
+    pub transcode_decision: String,
+}

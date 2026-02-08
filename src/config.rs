@@ -10,9 +10,11 @@ use std::path::PathBuf;
 
 use crate::http_server::HttpConfig;
 use crate::providers::jellyfin::Jellyfin;
+use crate::providers::lidarr::Lidarr;
 use crate::providers::overseerr::Overseerr;
 use crate::providers::plex::Plex;
 use crate::providers::radarr::Radarr;
+use crate::providers::readarr::Readarr;
 use crate::providers::sonarr::Sonarr;
 use crate::providers::tautulli::Tautulli;
 
@@ -23,6 +25,8 @@ pub struct Config {
     pub tautulli: Option<Tautulli>,
     pub sonarr: Option<HashMap<String, Sonarr>>,
     pub radarr: Option<HashMap<String, Radarr>>,
+    pub readarr: Option<HashMap<String, Readarr>>,
+    pub lidarr: Option<HashMap<String, Lidarr>>,
     pub overseerr: Option<Overseerr>,
     pub jellyseerr: Option<Overseerr>,
     pub plex: Option<HashMap<String, Plex>>,
@@ -35,6 +39,8 @@ impl Default for Config {
             tautulli: None,
             sonarr: None,
             radarr: None,
+            readarr: None,
+            lidarr: None,
             overseerr: None,
             jellyseerr: None,
             plex: None,
@@ -86,12 +92,25 @@ pub fn get_tasks(config: Config) -> anyhow::Result<Vec<Task>> {
     if let Some(tautulli) = config.tautulli {
         let tautulli = Tautulli::new(remove_trailing_slash(&tautulli.address), &tautulli.api_key)?;
         tasks.push(Task::TautulliSession(tautulli.clone()));
-        tasks.push(Task::TautulliLibrary(tautulli));
+        tasks.push(Task::TautulliLibrary(tautulli.clone()));
+        tasks.push(Task::TautulliHistory(tautulli));
     }
     if let Some(radarr) = config.radarr {
         for (name, r) in radarr {
             let client = Radarr::new(&name, remove_trailing_slash(&r.address), &r.api_key)?;
             tasks.push(Task::Radarr(client));
+        }
+    }
+    if let Some(readarr) = config.readarr {
+        for (name, r) in readarr {
+            let client = Readarr::new(&name, remove_trailing_slash(&r.address), &r.api_key)?;
+            tasks.push(Task::Readarr(client));
+        }
+    }
+    if let Some(lidarr) = config.lidarr {
+        for (name, l) in lidarr {
+            let client = Lidarr::new(&name, remove_trailing_slash(&l.address), &l.api_key)?;
+            tasks.push(Task::Lidarr(client));
         }
     }
     if let Some(overseerr) = config.overseerr {
@@ -158,6 +177,8 @@ mod tests {
             tautulli: Some(Tautulli::new("http://localhost", "abc").unwrap()),
             sonarr: Some(HashMap::new()),
             radarr: Some(HashMap::new()),
+            readarr: Some(HashMap::new()),
+            lidarr: Some(HashMap::new()),
             overseerr: Some(Overseerr::new("http://localhost", "abc", 20).unwrap()),
             jellyseerr: Some(Overseerr::new("http://localhost", "abc", 20).unwrap()),
             plex: Some(HashMap::new()),
@@ -165,7 +186,7 @@ mod tests {
             http: None,
         };
         let tasks = get_tasks(config).unwrap();
-        assert_eq!(tasks.len(), 4);
+        assert_eq!(tasks.len(), 5);
     }
 
     #[test]

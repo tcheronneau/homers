@@ -20,8 +20,9 @@ use tower_http::trace::TraceLayer;
 use crate::config::{get_tasks, Config};
 use crate::prometheus::{format_metrics, Format};
 use crate::tasks::{
-    LibraryResult, OverseerrRequestResult, RadarrMovieResult, SessionResult, SonarrEpisodeResult,
-    SonarrMissingResult, Task, TaskResult, TautulliLibraryResult, TautulliSessionResult,
+    LibraryResult, LidarrArtistResult, OverseerrRequestResult, RadarrMovieResult,
+    ReadarrAuthorResult, SessionResult, SonarrEpisodeResult, SonarrMissingResult, Task, TaskResult,
+    TautulliHistoryResult, TautulliLibraryResult, TautulliSessionResult,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -94,7 +95,6 @@ async fn metrics(
             };
         };
     };
-    dbg!(&format);
     Ok(serve_metrics(format, app_state.tasks.clone()).await)
 }
 
@@ -132,6 +132,14 @@ async fn process_tasks(tasks: Vec<Task>) -> Result<Vec<TaskResult>, JoinError> {
                     let result = TautulliLibraryResult { libraries: result };
                     Ok(TaskResult::TautulliLibrary(result))
                 }
+                Task::TautulliHistory(tautulli) => {
+                    let (total_plays, entries) = tautulli.get_history(200).await;
+                    let result = TautulliHistoryResult {
+                        total_plays,
+                        entries,
+                    };
+                    Ok(TaskResult::TautulliHistory(result))
+                }
                 Task::Radarr(radarr) => {
                     let name = &radarr.name;
                     let result = radarr.get_radarr_movies().await;
@@ -140,6 +148,24 @@ async fn process_tasks(tasks: Vec<Task>) -> Result<Vec<TaskResult>, JoinError> {
                         movies: result,
                     };
                     Ok(TaskResult::Radarr(result))
+                }
+                Task::Readarr(readarr) => {
+                    let name = &readarr.name;
+                    let result = readarr.get_readarr_authors().await;
+                    let result = ReadarrAuthorResult {
+                        name: name.to_string(),
+                        authors: result,
+                    };
+                    Ok(TaskResult::Readarr(result))
+                }
+                Task::Lidarr(lidarr) => {
+                    let name = &lidarr.name;
+                    let result = lidarr.get_lidarr_artists().await;
+                    let result = LidarrArtistResult {
+                        name: name.to_string(),
+                        artists: result,
+                    };
+                    Ok(TaskResult::Lidarr(result))
                 }
                 Task::Overseerr(overseerr) => {
                     let result = overseerr.get_overseerr_requests().await;
