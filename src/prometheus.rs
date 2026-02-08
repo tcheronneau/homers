@@ -108,7 +108,7 @@ struct RadarrAggregateLabels {
     pub name: String,
 }
 
-// Sonarr labels (sxe field removed)
+// Sonarr labels
 #[derive(Clone, Hash, Eq, PartialEq, EncodeLabelSet, Debug)]
 struct SonarrLabels {
     pub name: String,
@@ -116,6 +116,42 @@ struct SonarrLabels {
     pub episode_number: i64,
     pub title: String,
     pub serie: String,
+    pub sxe: String,
+}
+
+// Session location labels (geo data)
+#[derive(Clone, Hash, Eq, PartialEq, EncodeLabelSet, Debug)]
+struct SessionLocationLabels {
+    pub name: String,
+    pub user: String,
+    pub title: String,
+    pub city: String,
+    pub country: String,
+    pub latitude: String,
+    pub longitude: String,
+}
+
+// Tautulli session location labels (geo data)
+#[derive(Clone, Hash, Eq, PartialEq, EncodeLabelSet, Debug)]
+struct TautulliSessionLocationLabels {
+    pub user: String,
+    pub title: String,
+    pub city: String,
+    pub country: String,
+    pub latitude: String,
+    pub longitude: String,
+}
+
+// Sonarr aggregate labels
+#[derive(Clone, Hash, Eq, PartialEq, EncodeLabelSet, Debug)]
+struct SonarrAggregateLabels {
+    pub name: String,
+}
+
+// Overseerr aggregate labels
+#[derive(Clone, Hash, Eq, PartialEq, EncodeLabelSet, Debug)]
+struct OverseerrAggregateLabels {
+    pub name: String,
 }
 
 // Overseerr labels (requested_at removed, split into two metrics)
@@ -150,11 +186,19 @@ impl FormatAsPrometheus for SonarrEpisodeResult {
     fn format_as_prometheus(&self, registry: &mut Registry) {
         debug!("Formatting {self:?} as Prometheus");
         let sonarr_episode = Family::<SonarrLabels, Gauge<f64, AtomicU64>>::default();
+        let episodes_total = Family::<SonarrAggregateLabels, Gauge<f64, AtomicU64>>::default();
+
         registry.register(
             "sonarr_today_episode",
             "Sonarr today episode status".to_string(),
             sonarr_episode.clone(),
         );
+        registry.register(
+            "sonarr_today_episodes_total",
+            "Sonarr today episodes count".to_string(),
+            episodes_total.clone(),
+        );
+
         self.episodes.iter().for_each(|ep: &SonarrEpisode| {
             let labels = SonarrLabels {
                 name: self.name.clone(),
@@ -162,11 +206,18 @@ impl FormatAsPrometheus for SonarrEpisodeResult {
                 episode_number: ep.episode_number,
                 title: ep.title.clone(),
                 serie: ep.serie.clone(),
+                sxe: ep.sxe.clone(),
             };
             sonarr_episode
                 .get_or_create(&labels)
                 .set(if ep.has_file { 1.0 } else { 0.0 });
         });
+
+        episodes_total
+            .get_or_create(&SonarrAggregateLabels {
+                name: self.name.clone(),
+            })
+            .set(self.episodes.len() as f64);
     }
 }
 
@@ -174,11 +225,19 @@ impl FormatAsPrometheus for SonarrMissingResult {
     fn format_as_prometheus(&self, registry: &mut Registry) {
         debug!("Formatting {self:?} as Prometheus");
         let sonarr_episode = Family::<SonarrLabels, Gauge<f64, AtomicU64>>::default();
+        let episodes_total = Family::<SonarrAggregateLabels, Gauge<f64, AtomicU64>>::default();
+
         registry.register(
             "sonarr_missing_episode",
             "Sonarr missing episode status".to_string(),
             sonarr_episode.clone(),
         );
+        registry.register(
+            "sonarr_missing_episodes_total",
+            "Sonarr missing episodes count".to_string(),
+            episodes_total.clone(),
+        );
+
         self.episodes.iter().for_each(|ep: &SonarrEpisode| {
             let labels = SonarrLabels {
                 name: self.name.clone(),
@@ -186,11 +245,18 @@ impl FormatAsPrometheus for SonarrMissingResult {
                 episode_number: ep.episode_number,
                 title: ep.title.clone(),
                 serie: ep.serie.clone(),
+                sxe: ep.sxe.clone(),
             };
             sonarr_episode
                 .get_or_create(&labels)
                 .set(if ep.has_file { 1.0 } else { 0.0 });
         });
+
+        episodes_total
+            .get_or_create(&SonarrAggregateLabels {
+                name: self.name.clone(),
+            })
+            .set(self.episodes.len() as f64);
     }
 }
 
@@ -201,6 +267,8 @@ impl FormatAsPrometheus for TautulliSessionResult {
         let session_info = Family::<TautulliSessionInfoLabels, Gauge<f64, AtomicU64>>::default();
         let session_progress =
             Family::<TautulliSessionProgressLabels, Gauge<f64, AtomicU64>>::default();
+        let session_location =
+            Family::<TautulliSessionLocationLabels, Gauge<f64, AtomicU64>>::default();
 
         registry.register(
             "tautulli_session_count",
@@ -216,6 +284,11 @@ impl FormatAsPrometheus for TautulliSessionResult {
             "tautulli_session_progress",
             "Tautulli session progress percentage".to_string(),
             session_progress.clone(),
+        );
+        registry.register(
+            "tautulli_session_location",
+            "Tautulli session location".to_string(),
+            session_location.clone(),
         );
 
         session_count
@@ -241,6 +314,16 @@ impl FormatAsPrometheus for TautulliSessionResult {
             session_progress
                 .get_or_create(&progress_labels)
                 .set(session.progress.parse::<f64>().unwrap_or(0.0));
+
+            let location_labels = TautulliSessionLocationLabels {
+                user: session.user.clone(),
+                title: session.title.clone(),
+                city: session.location.city.clone(),
+                country: session.location.country.clone(),
+                latitude: session.location.latitude.clone(),
+                longitude: session.location.longitude.clone(),
+            };
+            session_location.get_or_create(&location_labels).set(1.0);
         });
     }
 }
@@ -385,6 +468,10 @@ impl FormatAsPrometheus for OverseerrRequestResult {
         debug!("Formatting {self:?} as Prometheus");
         let request_status = Family::<OverseerrLabels, Gauge<f64, AtomicU64>>::default();
         let media_status = Family::<OverseerrLabels, Gauge<f64, AtomicU64>>::default();
+        let requests_total = Family::<OverseerrAggregateLabels, Gauge<f64, AtomicU64>>::default();
+        let pending_total = Family::<OverseerrAggregateLabels, Gauge<f64, AtomicU64>>::default();
+        let approved_total = Family::<OverseerrAggregateLabels, Gauge<f64, AtomicU64>>::default();
+        let declined_total = Family::<OverseerrAggregateLabels, Gauge<f64, AtomicU64>>::default();
 
         registry.register(
             format!("{}_request_status", self.kind),
@@ -396,6 +483,33 @@ impl FormatAsPrometheus for OverseerrRequestResult {
             format!("{} media status", self.kind),
             media_status.clone(),
         );
+        registry.register(
+            format!("{}_requests_total", self.kind),
+            format!("{} total request count", self.kind),
+            requests_total.clone(),
+        );
+        registry.register(
+            format!("{}_requests_pending_total", self.kind),
+            format!("{} pending request count", self.kind),
+            pending_total.clone(),
+        );
+        registry.register(
+            format!("{}_requests_approved_total", self.kind),
+            format!("{} approved request count", self.kind),
+            approved_total.clone(),
+        );
+        registry.register(
+            format!("{}_requests_declined_total", self.kind),
+            format!("{} declined request count", self.kind),
+            declined_total.clone(),
+        );
+
+        let agg_labels = OverseerrAggregateLabels {
+            name: self.kind.clone(),
+        };
+        let mut pending = 0_f64;
+        let mut approved = 0_f64;
+        let mut declined = 0_f64;
 
         self.requests.iter().for_each(|request: &OverseerrRequest| {
             let labels = OverseerrLabels {
@@ -409,7 +523,21 @@ impl FormatAsPrometheus for OverseerrRequestResult {
             media_status
                 .get_or_create(&labels)
                 .set(request.media_status.as_f64());
+
+            match request.status.as_f64() as i64 {
+                1 => pending += 1.0,
+                2 => approved += 1.0,
+                3 => declined += 1.0,
+                _ => {}
+            }
         });
+
+        requests_total
+            .get_or_create(&agg_labels)
+            .set(self.requests.len() as f64);
+        pending_total.get_or_create(&agg_labels).set(pending);
+        approved_total.get_or_create(&agg_labels).set(approved);
+        declined_total.get_or_create(&agg_labels).set(declined);
     }
 }
 
@@ -421,6 +549,7 @@ impl FormatAsPrometheus for SessionResult {
         let session_progress = Family::<SessionProgressLabels, Gauge<f64, AtomicU64>>::default();
         let user_active = Family::<UserActiveLabels, Gauge<f64, AtomicU64>>::default();
         let session_bandwidth = Family::<SessionBandwidthLabels, Gauge<f64, AtomicU64>>::default();
+        let session_location = Family::<SessionLocationLabels, Gauge<f64, AtomicU64>>::default();
 
         let mut inactive_users = self.users.clone();
         let mut wan_bandwidth = 0.0;
@@ -452,6 +581,11 @@ impl FormatAsPrometheus for SessionResult {
             format!("{prefix}_user_active"),
             format!("{prefix} user active status"),
             user_active.clone(),
+        );
+        registry.register(
+            format!("{prefix}_session_location"),
+            format!("{prefix} session location"),
+            session_location.clone(),
         );
         if kind == "plex" || kind != "jellyfin" {
             registry.register(
@@ -496,6 +630,17 @@ impl FormatAsPrometheus for SessionResult {
                     user: session.user.clone(),
                 })
                 .set(1.0);
+
+            let location_labels = SessionLocationLabels {
+                name: self.name.clone(),
+                user: session.user.clone(),
+                title: session.title.clone(),
+                city: session.location.city.clone(),
+                country: session.location.country.clone(),
+                latitude: session.location.latitude.clone(),
+                longitude: session.location.longitude.clone(),
+            };
+            session_location.get_or_create(&location_labels).set(1.0);
         });
 
         // Set session count
@@ -670,8 +815,17 @@ impl FormatAsPrometheus for LibraryResult {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::providers::overseerr::{MediaStatus, OverseerrRequest, RequestStatus};
+    use crate::providers::radarr::RadarrMovie;
     use crate::providers::sonarr::SonarrEpisode;
-    use crate::tasks::{SonarrEpisodeResult, TaskResult};
+    use crate::providers::structs::{Bandwidth, BandwidthLocation, Location, MediaType, Session,
+        StreamDecision, User, LibraryCount};
+    use crate::providers::tautulli::{SessionSummary, TautulliLocation};
+    use crate::providers::structs::tautulli::Library as TautulliLibrary;
+    use crate::tasks::{
+        LibraryResult, OverseerrRequestResult, RadarrMovieResult, SessionResult, SonarrEpisodeResult,
+        TautulliLibraryResult, TautulliSessionResult, TaskResult,
+    };
 
     #[test]
     fn test_format_metrics() {
@@ -688,9 +842,469 @@ mod tests {
             }],
         })];
         let result = format_metrics(task_result).unwrap();
-        assert_eq!(
-            result,
-            "# HELP homers_sonarr_today_episode Sonarr today episode status.\n# TYPE homers_sonarr_today_episode gauge\nhomers_sonarr_today_episode{name=\"test\",season_number=\"1\",episode_number=\"1\",title=\"Test\",serie=\"Test\"} 1.0\n# EOF\n"
-        );
+        assert!(result.contains("homers_sonarr_today_episode{"));
+        assert!(result.contains("sxe=\"S01E01\""));
+        assert!(result.contains("serie=\"Test\""));
+        assert!(result.contains("} 1.0\n"));
+        assert!(result.contains("homers_sonarr_today_episodes_total{name=\"test\"} 1.0\n"));
+    }
+
+    fn make_tautulli_location(city: &str, country: &str, lat: &str, lon: &str) -> TautulliLocation {
+        TautulliLocation {
+            city: city.to_string(),
+            country: country.to_string(),
+            ip_address: "127.0.0.1".to_string(),
+            latitude: lat.to_string(),
+            longitude: lon.to_string(),
+        }
+    }
+
+    fn make_location(city: &str, country: &str, lat: &str, lon: &str) -> Location {
+        Location {
+            city: city.to_string(),
+            country: country.to_string(),
+            ip_address: "127.0.0.1".to_string(),
+            latitude: lat.to_string(),
+            longitude: lon.to_string(),
+        }
+    }
+
+    #[test]
+    fn test_tautulli_session_format() {
+        let result = format_metrics(vec![TaskResult::TautulliSession(TautulliSessionResult {
+            sessions: vec![
+                SessionSummary {
+                    user: "alice".to_string(),
+                    title: "Breaking Bad".to_string(),
+                    state: "playing".to_string(),
+                    progress: "42".to_string(),
+                    quality: "1080p".to_string(),
+                    quality_profile: "Original".to_string(),
+                    video_stream: "direct play".to_string(),
+                    media_type: "episode".to_string(),
+                    season_number: Some("3".to_string()),
+                    episode_number: Some("7".to_string()),
+                    location: make_tautulli_location("Berlin", "Germany", "52.52", "13.40"),
+                },
+                SessionSummary {
+                    user: "bob".to_string(),
+                    title: "Inception".to_string(),
+                    state: "paused".to_string(),
+                    progress: "75".to_string(),
+                    quality: "4K".to_string(),
+                    quality_profile: "4K".to_string(),
+                    video_stream: "transcode".to_string(),
+                    media_type: "movie".to_string(),
+                    season_number: None,
+                    episode_number: None,
+                    location: make_tautulli_location("Paris", "France", "48.85", "2.35"),
+                },
+            ],
+        })])
+        .unwrap();
+
+        // session_count should be 2
+        assert!(result.contains("homers_tautulli_session_count{} 2.0\n"));
+
+        // session_info for alice
+        assert!(result.contains("user=\"alice\""));
+        assert!(result.contains("title=\"Breaking Bad\""));
+        assert!(result.contains("state=\"playing\""));
+
+        // session_progress for alice at 42%
+        assert!(result.contains("homers_tautulli_session_progress{user=\"alice\",title=\"Breaking Bad\"} 42.0\n"));
+
+        // session_progress for bob at 75%
+        assert!(result.contains("homers_tautulli_session_progress{user=\"bob\",title=\"Inception\"} 75.0\n"));
+
+        // session_location has geo labels
+        assert!(result.contains("city=\"Berlin\""));
+        assert!(result.contains("latitude=\"52.52\""));
+        assert!(result.contains("longitude=\"13.40\""));
+        assert!(result.contains("city=\"Paris\""));
+    }
+
+    #[test]
+    fn test_tautulli_library_format() {
+        let result = format_metrics(vec![TaskResult::TautulliLibrary(TautulliLibraryResult {
+            libraries: vec![
+                TautulliLibrary {
+                    section_id: "1".to_string(),
+                    section_name: "Movies".to_string(),
+                    section_type: "movie".to_string(),
+                    agent: "".to_string(),
+                    thumb: "".to_string(),
+                    art: "".to_string(),
+                    count: "250".to_string(),
+                    is_active: 1,
+                    parent_count: None,
+                    child_count: None,
+                },
+                TautulliLibrary {
+                    section_id: "2".to_string(),
+                    section_name: "TV Shows".to_string(),
+                    section_type: "show".to_string(),
+                    agent: "".to_string(),
+                    thumb: "".to_string(),
+                    art: "".to_string(),
+                    count: "80".to_string(),
+                    is_active: 1,
+                    parent_count: Some("400".to_string()),
+                    child_count: Some("3500".to_string()),
+                },
+                TautulliLibrary {
+                    section_id: "3".to_string(),
+                    section_name: "Archived".to_string(),
+                    section_type: "movie".to_string(),
+                    agent: "".to_string(),
+                    thumb: "".to_string(),
+                    art: "".to_string(),
+                    count: "10".to_string(),
+                    is_active: 0,
+                    parent_count: None,
+                    child_count: None,
+                },
+            ],
+        })])
+        .unwrap();
+
+        // item_count metrics present
+        assert!(result.contains("homers_tautulli_library_item_count{"));
+        assert!(result.contains("section_name=\"Movies\""));
+        assert!(result.contains("section_name=\"TV Shows\""));
+
+        // child_count for TV Shows should be 3500
+        assert!(result.contains("homers_tautulli_library_child_count{section_name=\"TV Shows\",section_type=\"show\"} 3500.0\n"));
+
+        // parent_count for TV Shows should be 400
+        assert!(result.contains("homers_tautulli_library_parent_count{section_name=\"TV Shows\",section_type=\"show\"} 400.0\n"));
+
+        // item_count for Movies should be 250
+        assert!(result.contains("homers_tautulli_library_item_count{section_name=\"Movies\",section_type=\"movie\"} 250.0\n"));
+
+        // active library shows 1.0, inactive shows 0.0
+        assert!(result.contains("homers_tautulli_library_active{section_name=\"Movies\",section_type=\"movie\"} 1.0\n"));
+        assert!(result.contains("homers_tautulli_library_active{section_name=\"Archived\",section_type=\"movie\"} 0.0\n"));
+    }
+
+    #[test]
+    fn test_radarr_format() {
+        let result = format_metrics(vec![TaskResult::Radarr(RadarrMovieResult {
+            name: "radarr-main".to_string(),
+            movies: vec![
+                RadarrMovie {
+                    title: "The Matrix".to_string(),
+                    has_file: true,
+                    monitored: true,
+                    is_available: true,
+                    missing_available: false,
+                },
+                RadarrMovie {
+                    title: "Dune".to_string(),
+                    has_file: false,
+                    monitored: true,
+                    is_available: true,
+                    missing_available: true,
+                },
+                RadarrMovie {
+                    title: "Old Film".to_string(),
+                    has_file: false,
+                    monitored: false,
+                    is_available: false,
+                    missing_available: false,
+                },
+            ],
+        })])
+        .unwrap();
+
+        // has_file: The Matrix = 1.0, Dune = 0.0
+        assert!(result.contains("homers_radarr_movie_has_file{name=\"radarr-main\",title=\"The Matrix\"} 1.0\n"));
+        assert!(result.contains("homers_radarr_movie_has_file{name=\"radarr-main\",title=\"Dune\"} 0.0\n"));
+
+        // monitored: The Matrix = 1.0, Dune = 1.0, Old Film = 0.0
+        assert!(result.contains("homers_radarr_movie_monitored{name=\"radarr-main\",title=\"The Matrix\"} 1.0\n"));
+        assert!(result.contains("homers_radarr_movie_monitored{name=\"radarr-main\",title=\"Dune\"} 1.0\n"));
+        assert!(result.contains("homers_radarr_movie_monitored{name=\"radarr-main\",title=\"Old Film\"} 0.0\n"));
+
+        // available: The Matrix = 1.0, Dune = 1.0, Old Film = 0.0
+        assert!(result.contains("homers_radarr_movie_available{name=\"radarr-main\",title=\"The Matrix\"} 1.0\n"));
+        assert!(result.contains("homers_radarr_movie_available{name=\"radarr-main\",title=\"Old Film\"} 0.0\n"));
+
+        // aggregate counts: total=3, monitored=2, missing=1
+        assert!(result.contains("homers_radarr_movies_total{name=\"radarr-main\"} 3.0\n"));
+        assert!(result.contains("homers_radarr_movies_monitored_total{name=\"radarr-main\"} 2.0\n"));
+        assert!(result.contains("homers_radarr_movies_missing_total{name=\"radarr-main\"} 1.0\n"));
+    }
+
+    #[test]
+    fn test_overseerr_format() {
+        let result = format_metrics(vec![TaskResult::Overseerr(OverseerrRequestResult {
+            kind: "overseerr".to_string(),
+            requests: vec![
+                OverseerrRequest {
+                    media_type: "movie".to_string(),
+                    media_id: 1,
+                    status: RequestStatus::Pending,
+                    requested_by: "alice".to_string(),
+                    media_status: MediaStatus::Processing,
+                    media_title: "Dune Part Two".to_string(),
+                    requested_at: "2024-01-01T00:00:00Z".to_string(),
+                },
+                OverseerrRequest {
+                    media_type: "tv".to_string(),
+                    media_id: 2,
+                    status: RequestStatus::Approved,
+                    requested_by: "bob".to_string(),
+                    media_status: MediaStatus::Available,
+                    media_title: "Shogun".to_string(),
+                    requested_at: "2024-01-02T00:00:00Z".to_string(),
+                },
+                OverseerrRequest {
+                    media_type: "movie".to_string(),
+                    media_id: 3,
+                    status: RequestStatus::Declined,
+                    requested_by: "carol".to_string(),
+                    media_status: MediaStatus::Unknown,
+                    media_title: "Bad Movie".to_string(),
+                    requested_at: "2024-01-03T00:00:00Z".to_string(),
+                },
+            ],
+        })])
+        .unwrap();
+
+        // request_status metric present with correct labels
+        assert!(result.contains("homers_overseerr_request_status{"));
+        assert!(result.contains("media_title=\"Dune Part Two\""));
+        assert!(result.contains("requested_by=\"alice\""));
+
+        // Pending=1.0, Approved=2.0, Declined=3.0
+        assert!(result.contains("homers_overseerr_request_status{media_type=\"movie\",requested_by=\"alice\",media_title=\"Dune Part Two\"} 1.0\n"));
+        assert!(result.contains("homers_overseerr_request_status{media_type=\"tv\",requested_by=\"bob\",media_title=\"Shogun\"} 2.0\n"));
+        assert!(result.contains("homers_overseerr_request_status{media_type=\"movie\",requested_by=\"carol\",media_title=\"Bad Movie\"} 3.0\n"));
+
+        // media_status: Processing=3.0, Available=5.0, Unknown=1.0
+        assert!(result.contains("homers_overseerr_media_status{media_type=\"movie\",requested_by=\"alice\",media_title=\"Dune Part Two\"} 3.0\n"));
+        assert!(result.contains("homers_overseerr_media_status{media_type=\"tv\",requested_by=\"bob\",media_title=\"Shogun\"} 5.0\n"));
+        assert!(result.contains("homers_overseerr_media_status{media_type=\"movie\",requested_by=\"carol\",media_title=\"Bad Movie\"} 1.0\n"));
+
+        // aggregate counts
+        assert!(result.contains("homers_overseerr_requests_total{name=\"overseerr\"} 3.0\n"));
+        assert!(result.contains("homers_overseerr_requests_pending_total{name=\"overseerr\"} 1.0\n"));
+        assert!(result.contains("homers_overseerr_requests_approved_total{name=\"overseerr\"} 1.0\n"));
+        assert!(result.contains("homers_overseerr_requests_declined_total{name=\"overseerr\"} 1.0\n"));
+    }
+
+    #[test]
+    fn test_plex_session_format() {
+        let result = format_metrics(vec![TaskResult::PlexSession(SessionResult {
+            name: "plex-home".to_string(),
+            kind: "plex".to_string(),
+            users: vec![
+                User { name: "alice".to_string() },
+                User { name: "bob".to_string() },
+                User { name: "inactive-user".to_string() },
+            ],
+            sessions: vec![
+                Session {
+                    title: "The Wire".to_string(),
+                    user: "alice".to_string(),
+                    stream_decision: StreamDecision::DirectPlay,
+                    media_type: "episode".to_string(),
+                    state: "playing".to_string(),
+                    progress: 55.0,
+                    quality: "1080p".to_string(),
+                    season_number: Some("1".to_string()),
+                    episode_number: Some("3".to_string()),
+                    address: "192.168.1.10".to_string(),
+                    location: make_location("New York", "US", "40.71", "-74.00"),
+                    local: true,
+                    secure: true,
+                    relayed: false,
+                    platform: "Chrome".to_string(),
+                    bandwidth: Bandwidth {
+                        bandwidth: 8000,
+                        location: BandwidthLocation::Lan,
+                    },
+                },
+                Session {
+                    title: "Interstellar".to_string(),
+                    user: "bob".to_string(),
+                    stream_decision: StreamDecision::Transcode,
+                    media_type: "movie".to_string(),
+                    state: "playing".to_string(),
+                    progress: 30.0,
+                    quality: "4K".to_string(),
+                    season_number: None,
+                    episode_number: None,
+                    address: "203.0.113.5".to_string(),
+                    location: make_location("London", "UK", "51.50", "-0.12"),
+                    local: false,
+                    secure: true,
+                    relayed: false,
+                    platform: "Plex for Android".to_string(),
+                    bandwidth: Bandwidth {
+                        bandwidth: 20000,
+                        location: BandwidthLocation::Wan,
+                    },
+                },
+            ],
+        })])
+        .unwrap();
+
+        // session_count should be 2
+        assert!(result.contains("homers_plex_session_count{name=\"plex-home\"} 2.0\n"));
+
+        // session_info present
+        assert!(result.contains("homers_plex_session_info{"));
+        assert!(result.contains("title=\"The Wire\""));
+        assert!(result.contains("title=\"Interstellar\""));
+
+        // session_progress values
+        assert!(result.contains("homers_plex_session_progress{name=\"plex-home\",user=\"alice\",title=\"The Wire\"} 55.0\n"));
+        assert!(result.contains("homers_plex_session_progress{name=\"plex-home\",user=\"bob\",title=\"Interstellar\"} 30.0\n"));
+
+        // user_active: alice and bob are active (1.0), inactive-user is 0.0
+        assert!(result.contains("homers_plex_user_active{name=\"plex-home\",user=\"alice\"} 1.0\n"));
+        assert!(result.contains("homers_plex_user_active{name=\"plex-home\",user=\"bob\"} 1.0\n"));
+        assert!(result.contains("homers_plex_user_active{name=\"plex-home\",user=\"inactive-user\"} 0.0\n"));
+
+        // bandwidth: LAN=8000, WAN=20000
+        assert!(result.contains("homers_plex_session_bandwidth{name=\"plex-home\",location=\"LAN\"} 8000.0\n"));
+        assert!(result.contains("homers_plex_session_bandwidth{name=\"plex-home\",location=\"WAN\"} 20000.0\n"));
+
+        // session_location geo labels
+        assert!(result.contains("city=\"New York\""));
+        assert!(result.contains("latitude=\"40.71\""));
+        assert!(result.contains("longitude=\"-74.00\""));
+    }
+
+    #[test]
+    fn test_plex_library_format() {
+        let result = format_metrics(vec![TaskResult::PlexLibrary(LibraryResult {
+            name: "plex-home".to_string(),
+            kind: "plex".to_string(),
+            libraries: vec![
+                LibraryCount {
+                    name: "Movies".to_string(),
+                    media_type: MediaType::Movie,
+                    count: 500,
+                    child_count: None,
+                    grand_child_count: None,
+                },
+                LibraryCount {
+                    name: "4K Movies".to_string(),
+                    media_type: MediaType::Movie,
+                    count: 150,
+                    child_count: None,
+                    grand_child_count: None,
+                },
+                LibraryCount {
+                    name: "TV Shows".to_string(),
+                    media_type: MediaType::Show,
+                    count: 120,
+                    child_count: Some(600),
+                    grand_child_count: Some(8000),
+                },
+            ],
+        })])
+        .unwrap();
+
+        // Aggregate movie count: 500 + 150 = 650
+        assert!(result.contains("homers_plex_movie_count{} 650.0\n"));
+
+        // Aggregate show/season/episode counts
+        assert!(result.contains("homers_plex_show_count{} 120.0\n"));
+        assert!(result.contains("homers_plex_season_count{} 600.0\n"));
+        assert!(result.contains("homers_plex_episode_count{} 8000.0\n"));
+
+        // Per-library counts
+        assert!(result.contains("homers_plex_library_count{name=\"plex-home\",library_name=\"Movies\",library_type=\"Movie\"} 500.0\n"));
+        assert!(result.contains("homers_plex_library_count{name=\"plex-home\",library_name=\"4K Movies\",library_type=\"Movie\"} 150.0\n"));
+        assert!(result.contains("homers_plex_library_count{name=\"plex-home\",library_name=\"TV Shows\",library_type=\"Show\"} 120.0\n"));
+    }
+
+    #[test]
+    fn test_empty_results() {
+        // Empty Tautulli sessions
+        let result = format_metrics(vec![TaskResult::TautulliSession(TautulliSessionResult {
+            sessions: vec![],
+        })])
+        .unwrap();
+        assert!(result.contains("homers_tautulli_session_count{} 0.0\n"));
+
+        // Empty Radarr movies
+        let result = format_metrics(vec![TaskResult::Radarr(RadarrMovieResult {
+            name: "radarr".to_string(),
+            movies: vec![],
+        })])
+        .unwrap();
+        assert!(result.contains("homers_radarr_movies_total{name=\"radarr\"} 0.0\n"));
+        assert!(result.contains("homers_radarr_movies_monitored_total{name=\"radarr\"} 0.0\n"));
+        assert!(result.contains("homers_radarr_movies_missing_total{name=\"radarr\"} 0.0\n"));
+        // No per-movie metrics should be present
+        assert!(!result.contains("homers_radarr_movie_has_file{"));
+
+        // Empty Overseerr requests
+        let result = format_metrics(vec![TaskResult::Overseerr(OverseerrRequestResult {
+            kind: "overseerr".to_string(),
+            requests: vec![],
+        })])
+        .unwrap();
+        assert!(result.contains("homers_overseerr_requests_total{name=\"overseerr\"} 0.0\n"));
+        assert!(result.contains("homers_overseerr_requests_pending_total{name=\"overseerr\"} 0.0\n"));
+        assert!(result.contains("homers_overseerr_requests_approved_total{name=\"overseerr\"} 0.0\n"));
+        assert!(result.contains("homers_overseerr_requests_declined_total{name=\"overseerr\"} 0.0\n"));
+
+        // Empty Plex sessions — session_count still emitted via the loop-independent set
+        let result = format_metrics(vec![TaskResult::PlexSession(SessionResult {
+            name: "plex".to_string(),
+            kind: "plex".to_string(),
+            users: vec![],
+            sessions: vec![],
+        })])
+        .unwrap();
+        assert!(result.contains("homers_plex_session_count{name=\"plex\"} 0.0\n"));
+
+        // Empty Tautulli libraries
+        let result = format_metrics(vec![TaskResult::TautulliLibrary(TautulliLibraryResult {
+            libraries: vec![],
+        })])
+        .unwrap();
+        // Registry is created but no time-series emitted for per-library metrics
+        assert!(!result.contains("homers_tautulli_library_item_count{section_name="));
+    }
+
+    #[test]
+    fn test_special_characters_in_title() {
+        // prometheus-client handles label escaping natively; verify output is parseable
+        let result = format_metrics(vec![TaskResult::Radarr(RadarrMovieResult {
+            name: "radarr".to_string(),
+            movies: vec![
+                RadarrMovie {
+                    title: "Movie with \"quotes\"".to_string(),
+                    has_file: true,
+                    monitored: true,
+                    is_available: true,
+                    missing_available: false,
+                },
+                RadarrMovie {
+                    title: "Movie with \\backslash".to_string(),
+                    has_file: false,
+                    monitored: false,
+                    is_available: false,
+                    missing_available: false,
+                },
+            ],
+        })])
+        .unwrap();
+
+        // The output must contain both entries (escaping handled by prometheus-client)
+        assert!(result.contains("homers_radarr_movie_has_file{"));
+        assert!(result.contains("homers_radarr_movies_total{name=\"radarr\"} 2.0\n"));
+
+        // prometheus-client encodes quotes as literal " inside label values and
+        // backslashes as single \ — verify both titles appear in the output
+        assert!(result.contains("title=\"Movie with \"quotes\"\""));
+        assert!(result.contains("title=\"Movie with \\backslash\""));
     }
 }
