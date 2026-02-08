@@ -176,6 +176,16 @@ impl Overseerr {
                 ));
             }
         };
+        if !response.status().is_success() {
+            let status = response.status();
+            let body = response.text().await.unwrap_or_default();
+            error!("Overseerr returned HTTP {}: {}", status, body);
+            return Err(ProviderError::new(
+                Provider::Overseerr,
+                ProviderErrorKind::GetError,
+                &format!("HTTP {} from Overseerr: {}", status, body),
+            ));
+        }
         let body = match response.text().await {
             Ok(body) => body,
             Err(e) => {
