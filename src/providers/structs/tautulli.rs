@@ -400,7 +400,7 @@ pub struct HistoryEntry {
     #[serde(default)]
     pub player: String,
     #[serde(default)]
-    pub year: String,
+    pub year: i64,
     #[serde(default)]
     pub percent_complete: i64,
     #[serde(default)]
