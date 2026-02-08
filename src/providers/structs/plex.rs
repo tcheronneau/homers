@@ -12,18 +12,29 @@ pub struct PlexResponse {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum MediaContainer {
-    StatisticsContainer(StatisticsContainer),
-    LibraryContainer(LibraryContainer),
+    // Order matters with untagged enums - most specific variants first
+    // LibraryItemsContainer has unique required fields (library_section_id, library_section_title, library_section_uuid)
     LibraryItemsContainer(LibraryItemsContainer),
+    // StatisticsContainer has Account field
+    StatisticsContainer(StatisticsContainer),
+    // LibraryContainer has Directory field
+    LibraryContainer(LibraryContainer),
+    // ActivityContainer has Metadata field (with default, so relatively permissive)
     ActivityContainer(ActivityContainer),
+    // Default catches everything else (most permissive, must be last)
     Default(MediaContainerDefault),
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Metadata {
+    // Order matters with untagged enums - most specific variants first
+    // SessionMetadata has many unique required fields (Media, User, Player, Session)
     SessionMetadata(SessionMetadata),
+    // HistoryMetadata has unique history_key field
     HistoryMetadata(HistoryMetadata),
+    // LibraryMetadata is simpler but has title field
     LibraryMetadata(LibraryMetadata),
+    // Default catches everything else
     Default(serde_json::Value),
 }
 
@@ -67,6 +78,7 @@ pub struct LibraryItemsContainer {
     #[serde(rename = "librarySectionUUID")]
     pub library_section_uuid: String,
     #[serde(rename = "Metadata")]
+    #[serde(default)]
     pub metadata: Vec<Metadata>,
 }
 impl Default for LibraryItemsContainer {

@@ -83,6 +83,7 @@ pub struct DatabaseVersion {
 pub struct Calendar {
     pub series_id: i64,
     pub tvdb_id: i64,
+    #[serde(default)]
     pub episode_file_id: i64,
     pub season_number: i64,
     pub episode_number: i64,
@@ -156,13 +157,16 @@ pub struct Series {
     pub use_scene_numbering: bool,
     pub runtime: i64,
     pub tvdb_id: i64,
+    #[serde(default)]
     pub tv_rage_id: i64,
+    #[serde(default)]
     pub tv_maze_id: i64,
     pub first_aired: String,
     pub last_aired: String,
     pub series_type: String,
     pub clean_title: String,
-    //pub imdb_id: String,
+    #[serde(default)]
+    pub imdb_id: Option<String>,
     pub title_slug: String,
     pub certification: Option<String>,
     pub genres: Vec<String>,

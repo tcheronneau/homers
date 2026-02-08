@@ -6,17 +6,19 @@ use prometheus_client::metrics::gauge::Gauge;
 use prometheus_client::registry::Registry;
 use std::sync::atomic::AtomicU64;
 
+use crate::providers::lidarr::LidarrArtist;
 use crate::providers::overseerr::OverseerrRequest;
 use crate::providers::radarr::RadarrMovie;
+use crate::providers::readarr::ReadarrAuthor;
 use crate::providers::sonarr::SonarrEpisode;
 use crate::providers::structs::{
     BandwidthLocation, LibraryCount, MediaType as LibraryMediaType, Session,
 };
-use crate::providers::tautulli::Library as TautulliLibrary;
-use crate::providers::tautulli::SessionSummary;
+use crate::providers::tautulli::{Library as TautulliLibrary, SessionSummary};
 use crate::tasks::{
-    LibraryResult, OverseerrRequestResult, RadarrMovieResult, SessionResult, SonarrEpisodeResult,
-    SonarrMissingResult, TaskResult, TautulliLibraryResult, TautulliSessionResult,
+    LibraryResult, LidarrArtistResult, OverseerrRequestResult, RadarrMovieResult,
+    ReadarrAuthorResult, SessionResult, SonarrEpisodeResult, SonarrMissingResult, TaskResult,
+    TautulliHistoryResult, TautulliLibraryResult, TautulliSessionResult,
 };
 
 #[derive(PartialEq, Debug, Eq, Copy, Clone)]
@@ -96,6 +98,12 @@ struct TautulliLibraryLabels {
     pub section_type: String,
 }
 
+// Tautulli history labels
+#[derive(Clone, Hash, Eq, PartialEq, EncodeLabelSet, Debug)]
+struct TautulliHistoryUserLabels {
+    pub user: String,
+}
+
 // Radarr labels
 #[derive(Clone, Hash, Eq, PartialEq, EncodeLabelSet, Debug)]
 struct RadarrLabels {
@@ -105,6 +113,30 @@ struct RadarrLabels {
 
 #[derive(Clone, Hash, Eq, PartialEq, EncodeLabelSet, Debug)]
 struct RadarrAggregateLabels {
+    pub name: String,
+}
+
+// Lidarr labels
+#[derive(Clone, Hash, Eq, PartialEq, EncodeLabelSet, Debug)]
+struct LidarrLabels {
+    pub name: String,
+    pub artist: String,
+}
+
+#[derive(Clone, Hash, Eq, PartialEq, EncodeLabelSet, Debug)]
+struct LidarrAggregateLabels {
+    pub name: String,
+}
+
+// Readarr labels
+#[derive(Clone, Hash, Eq, PartialEq, EncodeLabelSet, Debug)]
+struct ReadarrLabels {
+    pub name: String,
+    pub author: String,
+}
+
+#[derive(Clone, Hash, Eq, PartialEq, EncodeLabelSet, Debug)]
+struct ReadarrAggregateLabels {
     pub name: String,
 }
 
@@ -385,6 +417,65 @@ fn parse_optional_count(value: &Option<String>) -> f64 {
         .unwrap_or(0.0)
 }
 
+impl FormatAsPrometheus for TautulliHistoryResult {
+    fn format_as_prometheus(&self, registry: &mut Registry) {
+        debug!("Formatting TautulliHistoryResult as Prometheus");
+        let total_plays = Gauge::<f64, AtomicU64>::default();
+        let user_watches =
+            Family::<TautulliHistoryUserLabels, Gauge<f64, AtomicU64>>::default();
+        let plays_24h = Gauge::<f64, AtomicU64>::default();
+
+        registry.register(
+            "tautulli_history_total_plays",
+            "Total number of plays in Tautulli history (all time)",
+            total_plays.clone(),
+        );
+        registry.register(
+            "tautulli_history_user_watches_24h",
+            "Number of items watched per user in last 24 hours",
+            user_watches.clone(),
+        );
+        registry.register(
+            "tautulli_history_plays_24h",
+            "Total number of plays in last 24 hours",
+            plays_24h.clone(),
+        );
+
+        total_plays.set(self.total_plays as f64);
+
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as i64;
+        let twenty_four_hours_ago = now - 86400;
+
+        let mut user_counts: std::collections::HashMap<String, f64> =
+            std::collections::HashMap::new();
+        let mut total_24h = 0.0;
+
+        for entry in &self.entries {
+            if entry.date >= twenty_four_hours_ago {
+                total_24h += 1.0;
+                let user = if entry.friendly_name.is_empty() {
+                    entry.user.clone()
+                } else {
+                    entry.friendly_name.clone()
+                };
+                *user_counts.entry(user).or_insert(0.0) += 1.0;
+            }
+        }
+
+        plays_24h.set(total_24h);
+        for (user, count) in &user_counts {
+            user_watches
+                .get_or_create(&TautulliHistoryUserLabels {
+                    user: user.clone(),
+                })
+                .set(*count);
+        }
+    }
+}
+
 impl FormatAsPrometheus for RadarrMovieResult {
     fn format_as_prometheus(&self, registry: &mut Registry) {
         debug!("Formatting {self:?} as Prometheus");
@@ -460,6 +551,122 @@ impl FormatAsPrometheus for RadarrMovieResult {
         movies_total.get_or_create(&agg_labels).set(total);
         monitored_total.get_or_create(&agg_labels).set(mon_total);
         missing_total.get_or_create(&agg_labels).set(miss_total);
+    }
+}
+
+impl FormatAsPrometheus for LidarrArtistResult {
+    fn format_as_prometheus(&self, registry: &mut Registry) {
+        debug!("Formatting {self:?} as Prometheus");
+        let monitored = Family::<LidarrLabels, Gauge<f64, AtomicU64>>::default();
+        let artists_total = Family::<LidarrAggregateLabels, Gauge<f64, AtomicU64>>::default();
+        let monitored_total = Family::<LidarrAggregateLabels, Gauge<f64, AtomicU64>>::default();
+        let tracks_total = Family::<LidarrAggregateLabels, Gauge<f64, AtomicU64>>::default();
+
+        registry.register(
+            "lidarr_artist_monitored",
+            "Lidarr artist is monitored".to_string(),
+            monitored.clone(),
+        );
+        registry.register(
+            "lidarr_artists_total",
+            "Lidarr total artist count".to_string(),
+            artists_total.clone(),
+        );
+        registry.register(
+            "lidarr_monitored_artists_total",
+            "Lidarr monitored artist count".to_string(),
+            monitored_total.clone(),
+        );
+        registry.register(
+            "lidarr_tracks_total",
+            "Lidarr total track file count".to_string(),
+            tracks_total.clone(),
+        );
+
+        let agg_labels = LidarrAggregateLabels {
+            name: self.name.clone(),
+        };
+        let mut total = 0_f64;
+        let mut mon_total = 0_f64;
+        let mut track_total = 0_f64;
+
+        self.artists.iter().for_each(|artist: &LidarrArtist| {
+            let labels = LidarrLabels {
+                name: self.name.clone(),
+                artist: artist.name.clone(),
+            };
+            monitored
+                .get_or_create(&labels)
+                .set(if artist.monitored { 1.0 } else { 0.0 });
+
+            total += 1.0;
+            if artist.monitored {
+                mon_total += 1.0;
+            }
+            track_total += artist.track_file_count as f64;
+        });
+
+        artists_total.get_or_create(&agg_labels).set(total);
+        monitored_total.get_or_create(&agg_labels).set(mon_total);
+        tracks_total.get_or_create(&agg_labels).set(track_total);
+    }
+}
+
+impl FormatAsPrometheus for ReadarrAuthorResult {
+    fn format_as_prometheus(&self, registry: &mut Registry) {
+        debug!("Formatting {self:?} as Prometheus");
+        let monitored = Family::<ReadarrLabels, Gauge<f64, AtomicU64>>::default();
+        let authors_total = Family::<ReadarrAggregateLabels, Gauge<f64, AtomicU64>>::default();
+        let monitored_total = Family::<ReadarrAggregateLabels, Gauge<f64, AtomicU64>>::default();
+        let books_total = Family::<ReadarrAggregateLabels, Gauge<f64, AtomicU64>>::default();
+
+        registry.register(
+            "readarr_author_monitored",
+            "Readarr author is monitored".to_string(),
+            monitored.clone(),
+        );
+        registry.register(
+            "readarr_authors_total",
+            "Readarr total author count".to_string(),
+            authors_total.clone(),
+        );
+        registry.register(
+            "readarr_monitored_authors_total",
+            "Readarr monitored author count".to_string(),
+            monitored_total.clone(),
+        );
+        registry.register(
+            "readarr_books_total",
+            "Readarr total book file count".to_string(),
+            books_total.clone(),
+        );
+
+        let agg_labels = ReadarrAggregateLabels {
+            name: self.name.clone(),
+        };
+        let mut total = 0_f64;
+        let mut mon_total = 0_f64;
+        let mut book_total = 0_f64;
+
+        self.authors.iter().for_each(|author: &ReadarrAuthor| {
+            let labels = ReadarrLabels {
+                name: self.name.clone(),
+                author: author.name.clone(),
+            };
+            monitored
+                .get_or_create(&labels)
+                .set(if author.monitored { 1.0 } else { 0.0 });
+
+            total += 1.0;
+            if author.monitored {
+                mon_total += 1.0;
+            }
+            book_total += author.book_file_count as f64;
+        });
+
+        authors_total.get_or_create(&agg_labels).set(total);
+        monitored_total.get_or_create(&agg_labels).set(mon_total);
+        books_total.get_or_create(&agg_labels).set(book_total);
     }
 }
 
@@ -985,6 +1192,93 @@ mod tests {
         // active library shows 1.0, inactive shows 0.0
         assert!(result.contains("homers_tautulli_library_active{section_name=\"Movies\",section_type=\"movie\"} 1.0\n"));
         assert!(result.contains("homers_tautulli_library_active{section_name=\"Archived\",section_type=\"movie\"} 0.0\n"));
+    }
+
+    #[test]
+    fn test_tautulli_history_format() {
+        use crate::providers::tautulli::HistoryEntry;
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as i64;
+
+        let result = format_metrics(vec![TaskResult::TautulliHistory(TautulliHistoryResult {
+            total_plays: 5000,
+            entries: vec![
+                HistoryEntry {
+                    date: now - 3600,
+                    started: now - 3600,
+                    stopped: now - 1800,
+                    duration: 1800,
+                    user: "alice".to_string(),
+                    friendly_name: "Alice".to_string(),
+                    full_title: "Breaking Bad - S01E01 - Pilot".to_string(),
+                    title: "Pilot".to_string(),
+                    parent_title: "Season 1".to_string(),
+                    grandparent_title: "Breaking Bad".to_string(),
+                    media_type: "episode".to_string(),
+                    platform: "Chrome".to_string(),
+                    player: "Plex Web".to_string(),
+                    year: "2008".to_string(),
+                    percent_complete: 100,
+                    watched_status: 1.0,
+                    transcode_decision: "direct play".to_string(),
+                },
+                HistoryEntry {
+                    date: now - 7200,
+                    started: now - 7200,
+                    stopped: now - 5400,
+                    duration: 1800,
+                    user: "alice".to_string(),
+                    friendly_name: "Alice".to_string(),
+                    full_title: "Inception".to_string(),
+                    title: "Inception".to_string(),
+                    parent_title: "".to_string(),
+                    grandparent_title: "".to_string(),
+                    media_type: "movie".to_string(),
+                    platform: "Firefox".to_string(),
+                    player: "Plex Web".to_string(),
+                    year: "2010".to_string(),
+                    percent_complete: 50,
+                    watched_status: 0.5,
+                    transcode_decision: "transcode".to_string(),
+                },
+                HistoryEntry {
+                    date: now - 100000, // older than 24h
+                    started: now - 100000,
+                    stopped: now - 98200,
+                    duration: 1800,
+                    user: "bob".to_string(),
+                    friendly_name: "Bob".to_string(),
+                    full_title: "Old Movie".to_string(),
+                    title: "Old Movie".to_string(),
+                    parent_title: "".to_string(),
+                    grandparent_title: "".to_string(),
+                    media_type: "movie".to_string(),
+                    platform: "TV".to_string(),
+                    player: "Plex".to_string(),
+                    year: "2000".to_string(),
+                    percent_complete: 100,
+                    watched_status: 1.0,
+                    transcode_decision: "direct play".to_string(),
+                },
+            ],
+        })])
+        .unwrap();
+
+        // total_plays should be 5000
+        assert!(result.contains("homers_tautulli_history_total_plays 5000.0\n"));
+
+        // plays_24h should be 2 (only first two entries are within 24h)
+        assert!(result.contains("homers_tautulli_history_plays_24h 2.0\n"));
+
+        // user_watches_24h for Alice should be 2
+        assert!(result.contains(
+            "homers_tautulli_history_user_watches_24h{user=\"Alice\"} 2.0\n"
+        ));
+
+        // Bob's entry is older than 24h so shouldn't appear in user_watches_24h
+        assert!(!result.contains("user=\"Bob\""));
     }
 
     #[test]

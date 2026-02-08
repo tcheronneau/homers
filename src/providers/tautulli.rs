@@ -4,7 +4,7 @@ use reqwest;
 use serde::{Deserialize, Serialize};
 
 use crate::providers::structs::tautulli;
-pub use crate::providers::structs::tautulli::Library;
+pub use crate::providers::structs::tautulli::{HistoryEntry, Library};
 use crate::providers::{Provider, ProviderError, ProviderErrorKind};
 
 #[derive(Debug, Deserialize, Clone, Serialize)]
@@ -181,5 +181,23 @@ impl Tautulli {
             session_summaries.push(session_summary);
         }
         session_summaries
+    }
+    pub async fn get_history(&self, length: i64) -> (i64, Vec<HistoryEntry>) {
+        let url = format!("{}get_history&length={}", self.api_url, length);
+        let response = match self.client.get(&url).send().await {
+            Ok(response) => response,
+            Err(e) => {
+                error!("Failed to get history: {}", e);
+                return (0, Vec::new());
+            }
+        };
+        let history: tautulli::HistoryResponse = match response.json().await {
+            Ok(history) => history,
+            Err(e) => {
+                error!("Failed to parse history: {}", e);
+                return (0, Vec::new());
+            }
+        };
+        (history.response.data.records_total, history.response.data.data)
     }
 }

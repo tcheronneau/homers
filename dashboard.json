@@ -1086,28 +1086,39 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "expr": "homers_plex_library_grandchild_count * on(name, library_name, library_type) group_left() homers_plex_library_child_count",
+          "expr": "homers_plex_library_grandchild_count",
           "format": "table",
           "instant": true,
           "legendFormat": "",
-          "refId": "B",
-          "hide": true
+          "refId": "B"
         }
       ],
       "title": "Plex Library Details (Children / Grandchildren)",
       "transformations": [
         {
+          "id": "filterFieldsByName",
+          "options": {
+            "include": {
+              "pattern": "^(?!__name__).*$"
+            }
+          }
+        },
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
           "id": "organize",
           "options": {
             "excludeByName": {
               "Time": true,
-              "__name__": true,
               "instance": true,
               "job": true,
               "name": true
             },
             "renameByName": {
-              "Value": "Seasons / Child Count",
+              "Value #A": "Seasons / Child Count",
+              "Value #B": "Episodes / Grandchild Count",
               "library_name": "Library",
               "library_type": "Type"
             }
@@ -1231,6 +1242,14 @@
       "title": "Tautulli Libraries",
       "transformations": [
         {
+          "id": "filterFieldsByName",
+          "options": {
+            "include": {
+              "pattern": "^(?!__name__).*$"
+            }
+          }
+        },
+        {
           "id": "merge",
           "options": {}
         },
@@ -1239,7 +1258,6 @@
           "options": {
             "excludeByName": {
               "Time": true,
-              "__name__": true,
               "instance": true,
               "job": true
             },
@@ -1267,6 +1285,255 @@
     {
       "collapsed": false,
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 52 },
+      "id": 112,
+      "panels": [],
+      "title": "Tautulli - Watch History",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "blue", "value": null }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 53 },
+      "id": 50,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "expr": "homers_tautulli_history_total_plays",
+          "legendFormat": "Total Plays",
+          "refId": "A"
+        }
+      ],
+      "title": "Total Plays (All Time)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 53 },
+      "id": 51,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "expr": "homers_tautulli_history_plays_24h",
+          "legendFormat": "Plays (24h)",
+          "refId": "A"
+        }
+      ],
+      "title": "Plays Last 24h",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineWidth": 1,
+            "scaleDistribution": { "type": "linear" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 53 },
+      "id": 52,
+      "options": {
+        "barRadius": 0.1,
+        "barWidth": 0.8,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "horizontal",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": { "mode": "single", "sort": "none" },
+        "xTickLabelRotation": 0
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "expr": "homers_tautulli_history_user_watches_24h",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "{{user}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Watches per User (24h)",
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "__name__": true,
+              "instance": true,
+              "job": true
+            },
+            "renameByName": {
+              "Value": "Watches",
+              "user": "User"
+            }
+          }
+        }
+      ],
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": { "type": "linear" },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "decimals": 0,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 61 },
+      "id": 53,
+      "options": {
+        "legend": {
+          "calcs": ["lastNotNull"],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "expr": "increase(homers_tautulli_history_total_plays[1h])",
+          "legendFormat": "Plays",
+          "refId": "A"
+        }
+      ],
+      "title": "Plays per Hour",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 69 },
       "id": 104,
       "panels": [],
       "title": "Radarr - Movies",
@@ -1290,7 +1557,7 @@
         },
         "overrides": []
       },
-      "gridPos": { "h": 4, "w": 8, "x": 0, "y": 53 },
+      "gridPos": { "h": 4, "w": 8, "x": 0, "y": 70 },
       "id": 20,
       "options": {
         "colorMode": "background",
@@ -1337,7 +1604,7 @@
         },
         "overrides": []
       },
-      "gridPos": { "h": 4, "w": 8, "x": 8, "y": 53 },
+      "gridPos": { "h": 4, "w": 8, "x": 8, "y": 70 },
       "id": 21,
       "options": {
         "colorMode": "background",
@@ -1385,7 +1652,7 @@
         },
         "overrides": []
       },
-      "gridPos": { "h": 4, "w": 8, "x": 16, "y": 53 },
+      "gridPos": { "h": 4, "w": 8, "x": 16, "y": 70 },
       "id": 22,
       "options": {
         "colorMode": "background",
@@ -1492,7 +1759,7 @@
           }
         ]
       },
-      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 57 },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 74 },
       "id": 23,
       "options": {
         "cellHeight": "sm",
@@ -1546,6 +1813,14 @@
       "title": "Radarr Missing Movies (monitored, no file)",
       "transformations": [
         {
+          "id": "filterFieldsByName",
+          "options": {
+            "include": {
+              "pattern": "^(?!__name__).*$"
+            }
+          }
+        },
+        {
           "id": "merge",
           "options": {}
         },
@@ -1554,7 +1829,6 @@
           "options": {
             "excludeByName": {
               "Time": true,
-              "__name__": true,
               "instance": true,
               "job": true,
               "name": true
@@ -1578,7 +1852,7 @@
     },
     {
       "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 67 },
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 84 },
       "id": 105,
       "panels": [],
       "title": "Sonarr - Episodes",
@@ -1602,7 +1876,7 @@
         },
         "overrides": []
       },
-      "gridPos": { "h": 4, "w": 12, "x": 0, "y": 68 },
+      "gridPos": { "h": 4, "w": 12, "x": 0, "y": 85 },
       "id": 30,
       "options": {
         "colorMode": "background",
@@ -1650,7 +1924,7 @@
         },
         "overrides": []
       },
-      "gridPos": { "h": 4, "w": 12, "x": 12, "y": 68 },
+      "gridPos": { "h": 4, "w": 12, "x": 12, "y": 85 },
       "id": 31,
       "options": {
         "colorMode": "background",
@@ -1721,7 +1995,7 @@
           }
         ]
       },
-      "gridPos": { "h": 10, "w": 12, "x": 0, "y": 72 },
+      "gridPos": { "h": 10, "w": 12, "x": 0, "y": 89 },
       "id": 32,
       "options": {
         "cellHeight": "sm",
@@ -1823,7 +2097,7 @@
           }
         ]
       },
-      "gridPos": { "h": 10, "w": 12, "x": 12, "y": 72 },
+      "gridPos": { "h": 10, "w": 12, "x": 12, "y": 89 },
       "id": 33,
       "options": {
         "cellHeight": "sm",
@@ -1885,7 +2159,7 @@
     },
     {
       "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 82 },
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 99 },
       "id": 106,
       "panels": [],
       "title": "Overseerr / Jellyseerr - Requests",
@@ -1909,7 +2183,7 @@
         },
         "overrides": []
       },
-      "gridPos": { "h": 4, "w": 5, "x": 0, "y": 83 },
+      "gridPos": { "h": 4, "w": 5, "x": 0, "y": 100 },
       "id": 40,
       "options": {
         "colorMode": "background",
@@ -1956,7 +2230,7 @@
         },
         "overrides": []
       },
-      "gridPos": { "h": 4, "w": 5, "x": 5, "y": 83 },
+      "gridPos": { "h": 4, "w": 5, "x": 5, "y": 100 },
       "id": 41,
       "options": {
         "colorMode": "background",
@@ -2003,7 +2277,7 @@
         },
         "overrides": []
       },
-      "gridPos": { "h": 4, "w": 5, "x": 10, "y": 83 },
+      "gridPos": { "h": 4, "w": 5, "x": 10, "y": 100 },
       "id": 42,
       "options": {
         "colorMode": "background",
@@ -2050,7 +2324,7 @@
         },
         "overrides": []
       },
-      "gridPos": { "h": 4, "w": 4, "x": 15, "y": 83 },
+      "gridPos": { "h": 4, "w": 4, "x": 15, "y": 100 },
       "id": 43,
       "options": {
         "colorMode": "background",
@@ -2143,7 +2417,7 @@
           }
         ]
       },
-      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 87 },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 104 },
       "id": 44,
       "options": {
         "cellHeight": "sm",
@@ -2186,6 +2460,14 @@
       "title": "Overseerr Requests",
       "transformations": [
         {
+          "id": "filterFieldsByName",
+          "options": {
+            "include": {
+              "pattern": "^(?!__name__).*$"
+            }
+          }
+        },
+        {
           "id": "merge",
           "options": {}
         },
@@ -2194,7 +2476,6 @@
           "options": {
             "excludeByName": {
               "Time": true,
-              "__name__": true,
               "instance": true,
               "job": true
             },
@@ -2281,7 +2562,7 @@
           }
         ]
       },
-      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 97 },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 114 },
       "id": 45,
       "options": {
         "cellHeight": "sm",
@@ -2324,6 +2605,14 @@
       "title": "Jellyseerr Requests",
       "transformations": [
         {
+          "id": "filterFieldsByName",
+          "options": {
+            "include": {
+              "pattern": "^(?!__name__).*$"
+            }
+          }
+        },
+        {
           "id": "merge",
           "options": {}
         },
@@ -2332,7 +2621,6 @@
           "options": {
             "excludeByName": {
               "Time": true,
-              "__name__": true,
               "instance": true,
               "job": true
             },

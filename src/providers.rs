@@ -1,8 +1,9 @@
 pub mod jellyfin;
+pub mod lidarr;
 pub mod overseerr;
 pub mod plex;
 pub mod radarr;
-//pub mod readarr;
+pub mod readarr;
 pub mod sonarr;
 pub mod structs;
 pub mod tautulli;
@@ -17,12 +18,13 @@ pub enum ProviderErrorKind {
 
 #[derive(Debug)]
 pub enum Provider {
+    Lidarr,
     Radarr,
     Sonarr,
     Overseerr,
     Tautulli,
     //Unifi,
-    //Readarr,
+    Readarr,
     Reqwest,
     Plex,
     Jellyfin,
@@ -30,8 +32,9 @@ pub enum Provider {
 impl std::fmt::Display for Provider {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Provider::Lidarr => write!(f, "Lidarr"),
             Provider::Radarr => write!(f, "Radarr"),
-            //Provider::Readarr => write!(f, "Readarr"),
+            Provider::Readarr => write!(f, "Readarr"),
             Provider::Sonarr => write!(f, "Sonarr"),
             Provider::Overseerr => write!(f, "Overseerr"),
             Provider::Tautulli => write!(f, "Tautulli"),

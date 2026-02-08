@@ -3,6 +3,7 @@ use ipgeolocate::{Locator, Service};
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 pub mod jellyfin;
+pub mod lidarr;
 pub mod overseerr;
 pub mod plex;
 pub mod radarr;
