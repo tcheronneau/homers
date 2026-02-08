@@ -322,7 +322,8 @@
                 "id": "custom.cellOptions",
                 "value": {
                   "mode": "basic",
-                  "type": "gauge"
+                  "type": "gauge",
+                  "valueDisplayMode": "text"
                 }
               },
               { "id": "max", "value": 100 },
@@ -339,60 +340,6 @@
                     { "color": "red", "value": 95 }
                   ]
                 }
-              }
-            ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "Value" },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
-              }
-            ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "Time" },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
-              }
-            ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "__name__" },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
-              }
-            ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "instance" },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
-              }
-            ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "job" },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
-              }
-            ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "name" },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
               }
             ]
           }
@@ -420,59 +367,27 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "expr": "homers_plex_session_info",
+          "expr": "homers_plex_session_progress * on(name, user, title) group_left(state, media_type, platform, decision, quality) homers_plex_session_info",
           "format": "table",
           "instant": true,
           "legendFormat": "",
           "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "expr": "homers_plex_session_progress",
-          "format": "table",
-          "instant": true,
-          "legendFormat": "",
-          "refId": "B"
         }
       ],
       "title": "Plex Users Online",
       "transformations": [
         {
-          "id": "filterByValue",
-          "options": {
-            "filters": [
-              {
-                "config": {
-                  "id": "greater",
-                  "options": { "value": 0 }
-                },
-                "fieldName": "Value #A"
-              }
-            ],
-            "match": "all",
-            "type": "include"
-          }
-        },
-        {
-          "id": "merge",
-          "options": {}
-        },
-        {
           "id": "organize",
           "options": {
             "excludeByName": {
               "Time": true,
-              "Value #A": true,
               "__name__": true,
               "instance": true,
               "job": true,
               "name": true
             },
             "renameByName": {
-              "Value #B": "Progress",
+              "Value": "Progress",
               "decision": "Decision",
               "media_type": "Media Type",
               "platform": "Platform",
@@ -489,7 +404,7 @@
               "platform": 4,
               "decision": 5,
               "quality": 6,
-              "Value #B": 7
+              "Value": 7
             }
           }
         }
@@ -749,7 +664,8 @@
                 "id": "custom.cellOptions",
                 "value": {
                   "mode": "basic",
-                  "type": "gauge"
+                  "type": "gauge",
+                  "valueDisplayMode": "text"
                 }
               },
               { "id": "max", "value": 100 },
@@ -766,51 +682,6 @@
                     { "color": "red", "value": 95 }
                   ]
                 }
-              }
-            ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "Value" },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
-              }
-            ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "Time" },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
-              }
-            ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "__name__" },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
-              }
-            ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "instance" },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
-              }
-            ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "job" },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
               }
             ]
           }
@@ -838,58 +709,26 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "expr": "homers_tautulli_session_info",
+          "expr": "homers_tautulli_session_progress * on(user, title) group_left(state, media_type, quality, quality_profile, video_stream) homers_tautulli_session_info",
           "format": "table",
           "instant": true,
           "legendFormat": "",
           "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "expr": "homers_tautulli_session_progress",
-          "format": "table",
-          "instant": true,
-          "legendFormat": "",
-          "refId": "B"
         }
       ],
       "title": "Tautulli Users Online",
       "transformations": [
         {
-          "id": "filterByValue",
-          "options": {
-            "filters": [
-              {
-                "config": {
-                  "id": "greater",
-                  "options": { "value": 0 }
-                },
-                "fieldName": "Value #A"
-              }
-            ],
-            "match": "all",
-            "type": "include"
-          }
-        },
-        {
-          "id": "merge",
-          "options": {}
-        },
-        {
           "id": "organize",
           "options": {
             "excludeByName": {
               "Time": true,
-              "Value #A": true,
               "__name__": true,
               "instance": true,
               "job": true
             },
             "renameByName": {
-              "Value #B": "Progress",
+              "Value": "Progress",
               "media_type": "Media Type",
               "quality": "Quality",
               "quality_profile": "Quality Profile",
@@ -906,7 +745,7 @@
               "quality": 4,
               "quality_profile": 5,
               "video_stream": 6,
-              "Value #B": 7
+              "Value": 7
             }
           }
         }
@@ -1247,19 +1086,16 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "expr": "homers_plex_library_grandchild_count",
+          "expr": "homers_plex_library_grandchild_count * on(name, library_name, library_type) group_left() homers_plex_library_child_count",
           "format": "table",
           "instant": true,
           "legendFormat": "",
-          "refId": "B"
+          "refId": "B",
+          "hide": true
         }
       ],
       "title": "Plex Library Details (Children / Grandchildren)",
       "transformations": [
-        {
-          "id": "merge",
-          "options": {}
-        },
         {
           "id": "organize",
           "options": {
@@ -1271,8 +1107,7 @@
               "name": true
             },
             "renameByName": {
-              "Value #A": "Seasons / Child Count",
-              "Value #B": "Episodes / Grandchild Count",
+              "Value": "Seasons / Child Count",
               "library_name": "Library",
               "library_type": "Type"
             }

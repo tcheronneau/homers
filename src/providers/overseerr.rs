@@ -176,9 +176,20 @@ impl Overseerr {
                 ));
             }
         };
-        let requests = match response.json::<overseerr::Request>().await {
+        let body = match response.text().await {
+            Ok(body) => body,
+            Err(e) => {
+                return Err(ProviderError::new(
+                    Provider::Overseerr,
+                    ProviderErrorKind::GetError,
+                    &format!("Failed to read response body: {:?}", e),
+                ));
+            }
+        };
+        let requests: overseerr::Request = match serde_json::from_str(&body) {
             Ok(requests) => requests,
             Err(e) => {
+                error!("Overseerr response body: {}", body);
                 return Err(ProviderError::new(
                     Provider::Overseerr,
                     ProviderErrorKind::ParseError,
