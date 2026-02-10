@@ -20,6 +20,7 @@ pub struct Plex {
     #[serde(skip)]
     pub name: String,
     pub address: String,
+    #[serde(skip_serializing)]
     pub token: String,
     #[serde(skip)]
     pub client: reqwest::Client,

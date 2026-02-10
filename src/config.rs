@@ -66,7 +66,7 @@ pub fn read(config_file: PathBuf, log_level: Level) -> anyhow::Result<Config> {
         .merge(Env::prefixed("HOMERS_").split("_"))
         .extract()?;
 
-    debug!("Read config is {:?}", config);
+    debug!("Config loaded successfully");
 
     Ok(config)
 }

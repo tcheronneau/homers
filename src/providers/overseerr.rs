@@ -20,7 +20,7 @@ pub struct OverseerrRequest {
 #[derive(Debug, Deserialize, Clone, Serialize)]
 pub struct Overseerr {
     pub address: String,
-    #[serde(rename = "apikey")]
+    #[serde(rename = "apikey", skip_serializing)]
     pub api_key: String,
     pub requests: Option<i64>,
     #[serde(skip)]

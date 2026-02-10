@@ -10,7 +10,7 @@ use crate::providers::{Provider, ProviderError, ProviderErrorKind};
 #[derive(Debug, Deserialize, Clone, Serialize)]
 pub struct Tautulli {
     pub address: String,
-    #[serde(rename = "apikey")]
+    #[serde(rename = "apikey", skip_serializing)]
     pub api_key: String,
     #[serde(default)]
     api_url: String,
@@ -62,7 +62,7 @@ impl std::fmt::Display for SessionSummary {
 
 impl Tautulli {
     pub fn new(address: &str, api_key: &str) -> Result<Tautulli, ProviderError> {
-        let api_url = format!("{}/api/v2?apikey={}&cmd=", address, api_key);
+        let api_url = format!("{}/api/v2", address);
         let client = reqwest::Client::builder().build()?;
         Ok(Tautulli {
             api_key: api_key.to_string(),
@@ -72,8 +72,13 @@ impl Tautulli {
         })
     }
     pub async fn get(&self, command: &str) -> Result<tautulli::TautulliData, ProviderError> {
-        let url = format!("{}{}", self.api_url, command);
-        let response = match self.client.get(&url).send().await {
+        let response = match self
+            .client
+            .get(&self.api_url)
+            .query(&[("apikey", &self.api_key), ("cmd", &command.to_string())])
+            .send()
+            .await
+        {
             Ok(response) => response,
             Err(e) => {
                 return Err(ProviderError::new(
@@ -183,8 +188,17 @@ impl Tautulli {
         session_summaries
     }
     pub async fn get_history(&self, length: i64) -> (i64, Vec<HistoryEntry>) {
-        let url = format!("{}get_history&length={}", self.api_url, length);
-        let response = match self.client.get(&url).send().await {
+        let response = match self
+            .client
+            .get(&self.api_url)
+            .query(&[
+                ("apikey", &self.api_key),
+                ("cmd", &"get_history".to_string()),
+                ("length", &length.to_string()),
+            ])
+            .send()
+            .await
+        {
             Ok(response) => response,
             Err(e) => {
                 error!("Failed to get history: {}", e);

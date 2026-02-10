@@ -56,8 +56,8 @@
           };
         };
       };
-      defaultPackage = self.packages.${system}.homers;
-      devShell = mkShell {
+      packages.default = self.packages.${system}.homers;
+      devShells.default = mkShell {
         inputsFrom = builtins.attrValues self.packages.${system};
 
         buildInputs = [
@@ -94,7 +94,27 @@
                 freeformType = format.type;
               };
               default = { };
-              description = "Homers configuration settings";
+              description = ''
+                Homers configuration settings (non-secret values).
+                These are rendered to a TOML config file in the Nix store.
+                Do NOT put API keys or tokens here - use environmentFile instead.
+              '';
+            };
+            environmentFile = mkOption {
+              type = types.nullOr types.path;
+              default = null;
+              description = ''
+                Path to an environment file containing secret overrides.
+                Homers uses Figment with HOMERS_ prefix and _ separator.
+                Environment variables override TOML config values.
+
+                Example file contents:
+                  HOMERS_SONARR_MAIN_APIKEY=your-sonarr-key
+                  HOMERS_TAUTULLI_APIKEY=your-tautulli-key
+                  HOMERS_RADARR_MAIN_APIKEY=your-radarr-key
+                  HOMERS_OVERSEERR_APIKEY=your-overseerr-key
+                  HOMERS_PLEX_KEVIN_TOKEN=your-plex-token
+              '';
             };
           };
           config = mkIf cfg.enable {
@@ -108,7 +128,11 @@
                 ExecReload = "${pkgs.coreutils}/bin/kill -SIGHUP $MAINPID";
                 KillSignal = "SIGINT";
                 TimeoutStopSec = "30s";
+                User = "homers";
+                Group = "homers";
                 AmbientCapabilities = "CAP_NET_BIND_SERVICE";
+              } // optionalAttrs (cfg.environmentFile != null) {
+                EnvironmentFile = cfg.environmentFile;
               };
             };
             users.users.homers = {
@@ -117,7 +141,6 @@
               group = "homers";
             };
             users.groups.homers = {};
-            meta.maintainers = with maintainers; [ tcheronneau ];
           };
         };
         });

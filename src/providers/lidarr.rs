@@ -27,7 +27,7 @@ pub struct Lidarr {
     #[serde(skip)]
     pub name: String,
     pub address: String,
-    #[serde(rename = "apikey")]
+    #[serde(rename = "apikey", skip_serializing)]
     pub api_key: String,
     #[serde(skip)]
     client: reqwest::Client,
