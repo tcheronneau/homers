@@ -202,6 +202,17 @@ struct PlexLibraryLabels {
     pub library_type: String,
 }
 
+/// Escape a string for use as a Prometheus label value.
+///
+/// The prometheus-client crate (0.22.x) does not escape special characters
+/// in label values. The Prometheus exposition format requires `\`, `"`, and
+/// newlines to be escaped as `\\`, `\"`, and `\n` respectively.
+fn escape_label_value(s: &str) -> String {
+    s.replace('\\', "\\\\")
+        .replace('"', "\\\"")
+        .replace('\n', "\\n")
+}
+
 pub fn format_metrics(task_result: Vec<TaskResult>) -> anyhow::Result<String> {
     let mut buffer = String::new();
     let mut registry = Registry::with_prefix("homers");
@@ -236,8 +247,8 @@ impl FormatAsPrometheus for SonarrEpisodeResult {
                 name: self.name.clone(),
                 season_number: ep.season_number,
                 episode_number: ep.episode_number,
-                title: ep.title.clone(),
-                serie: ep.serie.clone(),
+                title: escape_label_value(&ep.title),
+                serie: escape_label_value(&ep.serie),
                 sxe: ep.sxe.clone(),
             };
             sonarr_episode
@@ -275,8 +286,8 @@ impl FormatAsPrometheus for SonarrMissingResult {
                 name: self.name.clone(),
                 season_number: ep.season_number,
                 episode_number: ep.episode_number,
-                title: ep.title.clone(),
-                serie: ep.serie.clone(),
+                title: escape_label_value(&ep.title),
+                serie: escape_label_value(&ep.serie),
                 sxe: ep.sxe.clone(),
             };
             sonarr_episode
@@ -329,8 +340,8 @@ impl FormatAsPrometheus for TautulliSessionResult {
 
         self.sessions.iter().for_each(|session: &SessionSummary| {
             let info_labels = TautulliSessionInfoLabels {
-                user: session.user.clone(),
-                title: session.title.clone(),
+                user: escape_label_value(&session.user),
+                title: escape_label_value(&session.title),
                 state: session.state.clone(),
                 media_type: session.media_type.clone(),
                 quality: session.quality.clone(),
@@ -340,18 +351,18 @@ impl FormatAsPrometheus for TautulliSessionResult {
             session_info.get_or_create(&info_labels).set(1.0);
 
             let progress_labels = TautulliSessionProgressLabels {
-                user: session.user.clone(),
-                title: session.title.clone(),
+                user: escape_label_value(&session.user),
+                title: escape_label_value(&session.title),
             };
             session_progress
                 .get_or_create(&progress_labels)
                 .set(session.progress.parse::<f64>().unwrap_or(0.0));
 
             let location_labels = TautulliSessionLocationLabels {
-                user: session.user.clone(),
-                title: session.title.clone(),
-                city: session.location.city.clone(),
-                country: session.location.country.clone(),
+                user: escape_label_value(&session.user),
+                title: escape_label_value(&session.title),
+                city: escape_label_value(&session.location.city),
+                country: escape_label_value(&session.location.country),
                 latitude: session.location.latitude.clone(),
                 longitude: session.location.longitude.clone(),
             };
@@ -391,7 +402,7 @@ impl FormatAsPrometheus for TautulliLibraryResult {
 
         self.libraries.iter().for_each(|library: &TautulliLibrary| {
             let labels = TautulliLibraryLabels {
-                section_name: library.section_name.clone(),
+                section_name: escape_label_value(&library.section_name),
                 section_type: library.section_type.clone(),
             };
             item_count
@@ -469,7 +480,7 @@ impl FormatAsPrometheus for TautulliHistoryResult {
         for (user, count) in &user_counts {
             user_watches
                 .get_or_create(&TautulliHistoryUserLabels {
-                    user: user.clone(),
+                    user: escape_label_value(user),
                 })
                 .set(*count);
         }
@@ -527,7 +538,7 @@ impl FormatAsPrometheus for RadarrMovieResult {
         self.movies.iter().for_each(|movie: &RadarrMovie| {
             let labels = RadarrLabels {
                 name: self.name.clone(),
-                title: movie.title.clone(),
+                title: escape_label_value(&movie.title),
             };
             has_file
                 .get_or_create(&labels)
@@ -593,7 +604,7 @@ impl FormatAsPrometheus for LidarrArtistResult {
         self.artists.iter().for_each(|artist: &LidarrArtist| {
             let labels = LidarrLabels {
                 name: self.name.clone(),
-                artist: artist.name.clone(),
+                artist: escape_label_value(&artist.name),
             };
             monitored
                 .get_or_create(&labels)
@@ -651,7 +662,7 @@ impl FormatAsPrometheus for ReadarrAuthorResult {
         self.authors.iter().for_each(|author: &ReadarrAuthor| {
             let labels = ReadarrLabels {
                 name: self.name.clone(),
-                author: author.name.clone(),
+                author: escape_label_value(&author.name),
             };
             monitored
                 .get_or_create(&labels)
@@ -721,8 +732,8 @@ impl FormatAsPrometheus for OverseerrRequestResult {
         self.requests.iter().for_each(|request: &OverseerrRequest| {
             let labels = OverseerrLabels {
                 media_type: request.media_type.clone(),
-                requested_by: request.requested_by.to_string(),
-                media_title: request.media_title.clone(),
+                requested_by: escape_label_value(&request.requested_by.to_string()),
+                media_title: escape_label_value(&request.media_title),
             };
             request_status
                 .get_or_create(&labels)
@@ -812,8 +823,8 @@ impl FormatAsPrometheus for SessionResult {
 
             let info_labels = SessionInfoLabels {
                 name: self.name.clone(),
-                user: session.user.clone(),
-                title: session.title.clone(),
+                user: escape_label_value(&session.user),
+                title: escape_label_value(&session.title),
                 state: session.state.to_string(),
                 platform: session.platform.to_string(),
                 decision: session.stream_decision.to_string(),
@@ -824,8 +835,8 @@ impl FormatAsPrometheus for SessionResult {
 
             let progress_labels = SessionProgressLabels {
                 name: self.name.clone(),
-                user: session.user.clone(),
-                title: session.title.clone(),
+                user: escape_label_value(&session.user),
+                title: escape_label_value(&session.title),
             };
             session_progress
                 .get_or_create(&progress_labels)
@@ -834,16 +845,16 @@ impl FormatAsPrometheus for SessionResult {
             user_active
                 .get_or_create(&UserActiveLabels {
                     name: self.name.clone(),
-                    user: session.user.clone(),
+                    user: escape_label_value(&session.user),
                 })
                 .set(1.0);
 
             let location_labels = SessionLocationLabels {
                 name: self.name.clone(),
-                user: session.user.clone(),
-                title: session.title.clone(),
-                city: session.location.city.clone(),
-                country: session.location.country.clone(),
+                user: escape_label_value(&session.user),
+                title: escape_label_value(&session.title),
+                city: escape_label_value(&session.location.city),
+                country: escape_label_value(&session.location.country),
                 latitude: session.location.latitude.clone(),
                 longitude: session.location.longitude.clone(),
             };
@@ -878,7 +889,7 @@ impl FormatAsPrometheus for SessionResult {
             user_active
                 .get_or_create(&UserActiveLabels {
                     name: self.name.clone(),
-                    user: u.name.clone(),
+                    user: escape_label_value(&u.name),
                 })
                 .set(0.0);
         });
@@ -978,7 +989,7 @@ impl FormatAsPrometheus for LibraryResult {
         self.libraries.iter().for_each(|lib: &LibraryCount| {
             let labels = PlexLibraryLabels {
                 name: self.name.clone(),
-                library_name: lib.name.clone(),
+                library_name: escape_label_value(&lib.name),
                 library_type: lib.media_type.to_string(),
             };
             library_count
@@ -1570,7 +1581,8 @@ mod tests {
 
     #[test]
     fn test_special_characters_in_title() {
-        // prometheus-client handles label escaping natively; verify output is parseable
+        // prometheus-client 0.22.x does NOT escape label values, so we pre-escape
+        // them via escape_label_value(). Verify the output is valid Prometheus format.
         let result = format_metrics(vec![TaskResult::Radarr(RadarrMovieResult {
             name: "radarr".to_string(),
             movies: vec![
@@ -1592,13 +1604,12 @@ mod tests {
         })])
         .unwrap();
 
-        // The output must contain both entries (escaping handled by prometheus-client)
+        // The output must contain both entries
         assert!(result.contains("homers_radarr_movie_has_file{"));
         assert!(result.contains("homers_radarr_movies_total{name=\"radarr\"} 2.0\n"));
 
-        // prometheus-client encodes quotes as literal " inside label values and
-        // backslashes as single \ — verify both titles appear in the output
-        assert!(result.contains("title=\"Movie with \"quotes\"\""));
-        assert!(result.contains("title=\"Movie with \\backslash\""));
+        // Quotes must be escaped as \" and backslashes as \\
+        assert!(result.contains(r#"title="Movie with \"quotes\"""#));
+        assert!(result.contains(r#"title="Movie with \\backslash""#));
     }
 }
